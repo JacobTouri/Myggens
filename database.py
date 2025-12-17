@@ -419,6 +419,13 @@ def get_signups_by_phone(phone: str):
             sg.work_start AS work_start,
             sg.work_end AS work_end,
             sg.work_hours AS work_hours,
+
+            -- ✅ NYT: godkendelse + afregning
+            sg.approved_work_hours AS approved_work_hours,
+            sg.hours_approved_by_admin AS hours_approved_by_admin,
+            sg.payroll_paid AS payroll_paid,
+            sg.payroll_paid_at AS payroll_paid_at,
+
             s.id AS shift_id,
             s.date,
             s.start_time,
@@ -446,6 +453,7 @@ def get_signups_by_phone(phone: str):
             "description": row["description"],
             "needed": row["required_staff"],
         }
+
         result.append(
             {
                 "signup_id": row["signup_id"],
@@ -455,10 +463,18 @@ def get_signups_by_phone(phone: str):
                 "work_start": row["work_start"],
                 "work_end": row["work_end"],
                 "work_hours": row["work_hours"],
+
+                # ✅ NYT
+                "approved_work_hours": row["approved_work_hours"],
+                "hours_approved_by_admin": bool(row["hours_approved_by_admin"]) if row["hours_approved_by_admin"] is not None else False,
+                "payroll_paid": bool(row["payroll_paid"]) if row["payroll_paid"] is not None else False,
+                "payroll_paid_at": row["payroll_paid_at"],
+
                 "shift": shift_dict,
             }
         )
     return result
+
 
 
 

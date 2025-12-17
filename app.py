@@ -387,7 +387,14 @@ def mine_vagter_historik():
             signups_in_period.append(item)
 
     # Beregn totalt antal timer (kun hvor work_hours er sat)
-    total_hours = sum((item["work_hours"] or 0) for item in signups_in_period)
+    def final_hours(item):
+        if item.get("work_hours") is None:
+            return 0.0
+        if item.get("hours_approved_by_admin") and item.get("approved_work_hours") is not None:
+            return float(item["approved_work_hours"])
+        return float(item.get("work_hours") or 0.0)
+
+    total_hours = sum(final_hours(item) for item in signups_in_period)
 
     return render_template(
         "mine_vagter_history.html",

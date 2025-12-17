@@ -3,71 +3,184 @@
 {% block title %}Tidligere vagter – Myggen's{% endblock %}
 
 {% block content %}
-    <h1>Tidligere vagter</h1>
+<div class="layout-two-column">
+  <!-- Venstre: indhold -->
+  <section class="card card-soft">
+    <div class="card-header">
+      <div>
+        <h1 style="margin:0;">Tidligere vagter</h1>
+        <div class="card-subtitle">Månedsoversigt · status · godkendte timer</div>
+      </div>
+    </div>
 
-    <p>
-        <a href="{{ url_for('mine_vagter') }}">⬅ Tilbage til Mine vagter</a>
+    <p style="margin-top: 6px;">
+      <a href="{{ url_for('mine_vagter') }}" class="btn btn-ghost">← Tilbage til Mine vagter</a>
     </p>
 
-    <form method="get" style="margin-bottom: 15px;">
-        <label for="year">År</label>
-        <select name="year" id="year">
+    <!-- Filter -->
+    <div class="card" style="margin-top: 12px;">
+      <h2 style="margin:0 0 10px 0;">Vælg periode</h2>
+
+      {% set month_names = {
+        1:"Januar",2:"Februar",3:"Marts",4:"April",5:"Maj",6:"Juni",
+        7:"Juli",8:"August",9:"September",10:"Oktober",11:"November",12:"December"
+      } %}
+
+      <form method="get" style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+        <div style="min-width: 180px; flex: 1;">
+          <label for="year">År</label>
+          <select name="year" id="year">
             {% for y in years %}
-                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+              <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
             {% endfor %}
-        </select>
+          </select>
+        </div>
 
-        <label for="month">Måned</label>
-        <select name="month" id="month">
+        <div style="min-width: 220px; flex: 1;">
+          <label for="month">Måned</label>
+          <select name="month" id="month">
             {% for m in range(1, 13) %}
-                <option value="{{ m }}" {% if m == month %}selected{% endif %}>
-                    {{ "%02d"|format(m) }}
-                </option>
+              <option value="{{ m }}" {% if m == month %}selected{% endif %}>
+                {{ month_names[m] }}
+              </option>
             {% endfor %}
-        </select>
+          </select>
+        </div>
 
-        <button type="submit">Vis</button>
-    </form>
+        <div style="min-width: 120px;">
+          <button type="submit" class="btn btn-primary">Vis</button>
+        </div>
+      </form>
+    </div>
 
+    <!-- KPI -->
+    <div class="card" style="margin-top: 12px;">
+      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+        <div>
+          <div class="helper-text">I alt denne måned</div>
+          <div style="font-size: 26px; font-weight: 800; letter-spacing:-0.02em;">
+            {{ "%.2f"|format(total_hours) }} timer
+          </div>
+          <div class="helper-text">
+            Timer vises som <strong>godkendt</strong> hvis Martin har godkendt dem.
+          </div>
+        </div>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+          <span class="tag-pill">Godkendt = final</span>
+          <span class="tag-pill">Afregnet = færdig</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Liste -->
     {% if not signups %}
-        <p>Ingen vagter fundet for den valgte måned.</p>
+      <div class="card" style="margin-top: 12px;">
+        <div class="helper-text">Ingen vagter i den valgte måned.</div>
+      </div>
     {% else %}
-        <table border="1" cellpadding="4" cellspacing="0" style="border-collapse: collapse;">
-            <thead>
-                <tr>
-                    <th>Dato</th>
-                    <th>Sted</th>
-                    <th>Beskrivelse</th>
-                    <th>Start</th>
-                    <th>Slut</th>
-                    <th>Timer</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in signups %}
-                    {% set shift = item.shift %}
-                    <tr>
-                        <td>{{ shift.date|dkdate }}</td>
-                        <td>{{ shift.location }}</td>
-                        <td>{{ shift.description }}</td>
-                        <td>{{ item.work_start or "-" }}</td>
-                        <td>{{ item.work_end or "-" }}</td>
-                        <td style="text-align: right;">
-                            {% if item.work_hours %}
-                                {{ "%.2f"|format(item.work_hours) }}
-                            {% else %}
-                                0
-                            {% endif %}
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td colspan="5" style="text-align: right;"><strong>I alt denne måned:</strong></td>
-                    <td style="text-align: right;"><strong>{{ "%.2f"|format(total_hours) }} timer</strong></td>
-                </tr>
-            </tfoot>
-        </table>
+
+      {% for item in signups %}
+        {% set shift = item.shift %}
+        {% set missing = (item.work_hours is none) %}
+        {% set approved = item.hours_approved_by_admin %}
+        {% set paid = item.payroll_paid %}
+        {% set final_hours = (item.approved_work_hours if approved and item.approved_work_hours is not none else item.work_hours) %}
+
+        <div class="card" style="margin-top: 12px;">
+          <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+            <div>
+              <div style="font-weight:800; font-size:16px;">
+                {{ shift.date|dkdate }}
+              </div>
+              <div class="helper-text">
+                {{ shift.location }}{% if shift.description %} · {{ shift.description }}{% endif %}
+              </div>
+            </div>
+
+            <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; align-items:flex-start;">
+              {% if missing %}
+                <span class="tag-pill" style="border-color: rgba(255,75,75,0.6); background: rgba(255,75,75,0.12); color:#ffb4b4;">
+                  Timer mangler ⛔
+                </span>
+              {% elif paid %}
+                <span class="tag-pill" style="border-color: rgba(58,203,106,0.6); background: rgba(58,203,106,0.12); color:#9ff2b7;">
+                  Afregnet ✅
+                </span>
+              {% elif approved %}
+                <span class="tag-pill" style="border-color: rgba(58,203,106,0.45); background: rgba(58,203,106,0.10); color:#b7ffd0;">
+                  Godkendt ✔️
+                </span>
+              {% else %}
+                <span class="tag-pill" style="border-color: rgba(255,213,105,0.7); background: rgba(255,213,105,0.12); color:#ffe6a6;">
+                  Afventer godkendelse 🕒
+                </span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div style="margin-top: 10px; display:flex; gap:12px; flex-wrap:wrap;">
+            <div class="card" style="padding:10px 12px; background: rgba(255,255,255,0.02); flex:1; min-width: 220px;">
+              <div class="helper-text">Registreret</div>
+              <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:baseline;">
+                <div><strong>Start:</strong> {{ item.work_start or "-" }}</div>
+                <div><strong>Slut:</strong> {{ item.work_end or "-" }}</div>
+                <div><strong>Timer:</strong>
+                  {% if missing %}
+                    —
+                  {% else %}
+                    {{ "%.2f"|format(item.work_hours) }}
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="padding:10px 12px; background: rgba(255,255,255,0.02); flex:1; min-width: 220px;">
+              <div class="helper-text">Finalt timetal (til løn)</div>
+              <div style="font-size: 18px; font-weight: 800;">
+                {% if missing %}
+                  —
+                {% else %}
+                  {{ "%.2f"|format(final_hours) }} timer
+                {% endif %}
+              </div>
+
+              {% if not missing and approved and item.approved_work_hours is not none and item.work_hours is not none and (item.approved_work_hours != item.work_hours) %}
+                <div class="helper-text">
+                  (Just. fra {{ "%.2f"|format(item.work_hours) }} → {{ "%.2f"|format(item.approved_work_hours) }})
+                </div>
+              {% endif %}
+
+              {% if paid and item.payroll_paid_at %}
+                <div class="helper-text">Afregnet: {{ item.payroll_paid_at }}</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+      {% endfor %}
     {% endif %}
+  </section>
+
+  <!-- Højre: hero -->
+  <aside class="hero-panel">
+    <div class="hero-bg-rotator"></div>
+    <div class="hero-panel-inner">
+      <div>
+        <div class="hero-heading">Sådan læses status</div>
+        <p class="hero-text">
+          <strong>Afventer godkendelse</strong>: timer er registreret, men ikke godkendt endnu.<br>
+          <strong>Godkendt</strong>: timetallet er låst til løn (kan være justeret).<br>
+          <strong>Afregnet</strong>: vagten er betalt og færdig.
+        </p>
+      </div>
+
+      <div class="hero-badge-row">
+        <span class="tag-pill">Måneder</span>
+        <span class="tag-pill">Final timer</span>
+        <span class="tag-pill">Status</span>
+      </div>
+    </div>
+  </aside>
+</div>
 {% endblock %}
