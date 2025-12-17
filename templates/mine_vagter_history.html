@@ -85,29 +85,6 @@
 
       <hr style="border:none;border-top:1px solid rgba(255,255,255,0.10);margin:14px 0;">
 
-      <!-- HURTIGVALG -->
-      <div class="helper-text" style="margin-bottom:8px;">Hurtigvalg</div>
-      <form method="get" style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
-        <div style="min-width:180px;flex:1;">
-          <label for="year">År</label>
-          <select name="year" id="year">
-            {% for y in years %}
-              <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <div style="min-width:220px;flex:1;">
-          <label for="month">Måned</label>
-          <select name="month" id="month">
-            {% for m in range(1,13) %}
-              <option value="{{ m }}" {% if m == month %}selected{% endif %}>
-                {{ month_names[m] }}
-              </option>
-            {% endfor %}
-          </select>
-        </div>
-
         <button type="submit" class="btn btn-ghost">Vis måned</button>
       </form>
     </div>
