@@ -3,8 +3,49 @@
 {% block title %}Tidligere vagter – Myggen's{% endblock %}
 
 {% block content %}
+<style>
+  /* ====== Periode-filter styling ====== */
+  .range-grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr auto auto;
+    gap:10px;
+    align-items:end;
+  }
+  @media (max-width: 720px){
+    .range-grid{
+      grid-template-columns: 1fr 1fr;
+    }
+    .range-grid .btn{
+      width:100%;
+    }
+  }
+
+  .input-like{
+    width:100%;
+    height:44px;
+    padding:10px 12px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,0.10);
+    background:rgba(0,0,0,0.30);
+    color:var(--text);
+    outline:none;
+  }
+  .input-like:focus{
+    border-color:rgba(255,140,0,0.65);
+    box-shadow:0 0 0 3px rgba(255,140,0,0.18);
+  }
+
+  input[type="date"].input-like{
+    color-scheme: dark;
+  }
+  input[type="date"].input-like::-webkit-calendar-picker-indicator{
+    opacity:0.75;
+    cursor:pointer;
+  }
+</style>
+
 <div class="layout-two-column">
-  <!-- Venstre: indhold -->
+  <!-- VENSTRE -->
   <section class="card card-soft">
     <div class="card-header">
       <div>
@@ -12,7 +53,7 @@
       </div>
     </div>
 
-    <p style="margin-top: 6px;">
+    <p style="margin-top:6px;">
       <a href="{{ url_for('mine_vagter') }}" class="btn btn-ghost">← Tilbage til Mine vagter</a>
     </p>
 
@@ -21,38 +62,33 @@
       7:"Juli",8:"August",9:"September",10:"Oktober",11:"November",12:"December"
     } %}
 
-    <!-- Filter -->
-    <div class="card" style="margin-top: 12px;">
+    <!-- FILTER -->
+    <div class="card" style="margin-top:12px;">
       <h2 style="margin:0 0 10px 0;">Vælg periode</h2>
 
-      <!-- Primær: fra/til -->
-      <form method="get" style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
-        <div style="min-width: 220px; flex: 1;">
+      <!-- FRA / TIL -->
+      <form method="get" class="range-grid">
+        <div>
           <label for="from_date">Fra</label>
-          <input type="date" id="from_date" name="from_date" value="{{ from_date or '' }}">
+          <input class="input-like" type="date" id="from_date" name="from_date" value="{{ from_date or '' }}">
         </div>
 
-        <div style="min-width: 220px; flex: 1;">
+        <div>
           <label for="to_date">Til</label>
-          <input type="date" id="to_date" name="to_date" value="{{ to_date or '' }}">
+          <input class="input-like" type="date" id="to_date" name="to_date" value="{{ to_date or '' }}">
           <div class="helper-text">Fremtidige datoer vises ikke.</div>
         </div>
 
-        <div style="min-width: 120px;">
-          <button type="submit" class="btn btn-primary">Vis</button>
-        </div>
-
-        <div style="min-width: 120px;">
-          <a class="btn btn-secondary" href="{{ url_for('mine_vagter_historik') }}">Nulstil</a>
-        </div>
+        <button type="submit" class="btn btn-primary">Vis</button>
+        <a class="btn btn-secondary" href="{{ url_for('mine_vagter_historik') }}">Nulstil</a>
       </form>
 
       <hr style="border:none;border-top:1px solid rgba(255,255,255,0.10);margin:14px 0;">
 
-      <!-- Hurtig genvej: måned -->
-      <div class="helper-text" style="margin-bottom: 8px;">Hurtigvalg</div>
+      <!-- HURTIGVALG -->
+      <div class="helper-text" style="margin-bottom:8px;">Hurtigvalg</div>
       <form method="get" style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
-        <div style="min-width: 180px; flex: 1;">
+        <div style="min-width:180px;flex:1;">
           <label for="year">År</label>
           <select name="year" id="year">
             {% for y in years %}
@@ -61,10 +97,10 @@
           </select>
         </div>
 
-        <div style="min-width: 220px; flex: 1;">
+        <div style="min-width:220px;flex:1;">
           <label for="month">Måned</label>
           <select name="month" id="month">
-            {% for m in range(1, 13) %}
+            {% for m in range(1,13) %}
               <option value="{{ m }}" {% if m == month %}selected{% endif %}>
                 {{ month_names[m] }}
               </option>
@@ -72,141 +108,91 @@
           </select>
         </div>
 
-        <div style="min-width: 140px;">
-          <button type="submit" class="btn btn-ghost">Vis måned</button>
-        </div>
+        <button type="submit" class="btn btn-ghost">Vis måned</button>
       </form>
     </div>
 
     <!-- KPI -->
-    <div class="card" style="margin-top: 12px;">
-      <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+    <div class="card" style="margin-top:12px;">
+      <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
         <div>
           <div class="helper-text">I alt i perioden</div>
-          <div style="font-size: 26px; font-weight: 800; letter-spacing:-0.02em;">
+          <div style="font-size:26px;font-weight:800;">
             {{ "%.2f"|format(total_hours) }} timer
           </div>
-
           {% if period_label %}
             <div class="helper-text">Periode: <strong>{{ period_label }}</strong></div>
-          {% else %}
-            <div class="helper-text">
-              Timer vises som <strong>godkendt</strong> hvis Martin har godkendt dem.
-            </div>
           {% endif %}
         </div>
 
-        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
         </div>
       </div>
     </div>
 
-    <!-- Liste -->
+    <!-- LISTE -->
     {% if not signups %}
-      <div class="card" style="margin-top: 12px;">
+      <div class="card" style="margin-top:12px;">
         <div class="helper-text">Ingen vagter i den valgte periode.</div>
       </div>
     {% else %}
-
       {% for item in signups %}
         {% set shift = item.shift %}
-        {% set missing = (item.work_hours is none) %}
+        {% set missing = item.work_hours is none %}
         {% set approved = item.hours_approved_by_admin %}
         {% set paid = item.payroll_paid %}
-        {% set final_hours = (item.approved_work_hours if approved and item.approved_work_hours is not none else item.work_hours) %}
+        {% set final_hours = item.approved_work_hours if approved and item.approved_work_hours is not none else item.work_hours %}
 
-        <div class="card" style="margin-top: 12px;">
-          <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+        <div class="card" style="margin-top:12px;">
+          <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
             <div>
-              <div style="font-weight:800; font-size:16px;">
-                {{ shift.date|dkdate }}
-              </div>
+              <div style="font-weight:800;">{{ shift.date|dkdate }}</div>
               <div class="helper-text">
                 {{ shift.location }}{% if shift.description %} · {{ shift.description }}{% endif %}
               </div>
             </div>
 
-            <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; align-items:flex-start;">
+            <div>
               {% if missing %}
-                <span class="tag-pill" style="border-color: rgba(255,75,75,0.6); background: rgba(255,75,75,0.12); color:#ffb4b4;">
-                  Timer mangler ⛔
-                </span>
+                <span class="tag-pill" style="background:rgba(255,75,75,0.15);">Timer mangler ⛔</span>
               {% elif paid %}
-                <span class="tag-pill" style="border-color: rgba(58,203,106,0.6); background: rgba(58,203,106,0.12); color:#9ff2b7;">
-                  Afregnet ✅
-                </span>
+                <span class="tag-pill" style="background:rgba(58,203,106,0.15);">Afregnet ✅</span>
               {% elif approved %}
-                <span class="tag-pill" style="border-color: rgba(58,203,106,0.45); background: rgba(58,203,106,0.10); color:#b7ffd0;">
-                  Godkendt ✔️
-                </span>
+                <span class="tag-pill" style="background:rgba(58,203,106,0.10);">Godkendt ✔️</span>
               {% else %}
-                <span class="tag-pill" style="border-color: rgba(255,213,105,0.7); background: rgba(255,213,105,0.12); color:#ffe6a6;">
-                  Afventer godkendelse 🕒
-                </span>
+                <span class="tag-pill" style="background:rgba(255,213,105,0.15);">Afventer 🕒</span>
               {% endif %}
             </div>
           </div>
 
-          <div style="margin-top: 10px; display:flex; gap:12px; flex-wrap:wrap;">
-            <div class="card" style="padding:10px 12px; background: rgba(255,255,255,0.02); flex:1; min-width: 220px;">
+          <div style="margin-top:10px;display:flex;gap:12px;flex-wrap:wrap;">
+            <div class="card" style="flex:1;background:rgba(255,255,255,0.02);">
               <div class="helper-text">Registreret</div>
-              <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:baseline;">
-                <div><strong>Start:</strong> {{ item.work_start or "-" }}</div>
-                <div><strong>Slut:</strong> {{ item.work_end or "-" }}</div>
-                <div><strong>Timer:</strong>
-                  {% if missing %}
-                    —
-                  {% else %}
-                    {{ "%.2f"|format(item.work_hours) }}
-                  {% endif %}
-                </div>
-              </div>
+              <strong>{{ item.work_start or "-" }} → {{ item.work_end or "-" }}</strong><br>
+              Timer: {{ "%.2f"|format(item.work_hours) if not missing else "—" }}
             </div>
 
-            <div class="card" style="padding:10px 12px; background: rgba(255,255,255,0.02); flex:1; min-width: 220px;">
-              <div class="helper-text">Finalt timetal (til løn)</div>
-              <div style="font-size: 18px; font-weight: 800;">
-                {% if missing %}
-                  —
-                {% else %}
-                  {{ "%.2f"|format(final_hours) }} timer
-                {% endif %}
-              </div>
-
-              {% if not missing and approved and item.approved_work_hours is not none and item.work_hours is not none and (item.approved_work_hours != item.work_hours) %}
-                <div class="helper-text">
-                  (Just. fra {{ "%.2f"|format(item.work_hours) }} → {{ "%.2f"|format(item.approved_work_hours) }})
-                </div>
-              {% endif %}
-
-              {% if paid and item.payroll_paid_at %}
-                <div class="helper-text">Afregnet: {{ item.payroll_paid_at }}</div>
-              {% endif %}
+            <div class="card" style="flex:1;background:rgba(255,255,255,0.02);">
+              <div class="helper-text">Timetal</div>
+              <strong>{{ "%.2f"|format(final_hours) if not missing else "—" }} timer</strong>
             </div>
           </div>
         </div>
-
       {% endfor %}
     {% endif %}
   </section>
 
-  <!-- Højre: hero -->
+  <!-- HØJRE -->
   <aside class="hero-panel">
     <div class="hero-bg-rotator"></div>
     <div class="hero-panel-inner">
       <div>
-        <div class="hero-heading">Sådan læses status</div>
+        <div class="hero-heading">Statusforklaring</div>
         <p class="hero-text">
-          <strong>Afventer godkendelse</strong>: Dine Timer er registreret, men ikke godkendt endnu.<br>
-          <strong>Godkendt</strong>: Dine timer er godkendt og venter på at blive kørt til løn.<br>
-          <strong>Afregnet</strong>: Vagten er sendt til løn.
+          <strong>Afventer</strong>: registreret, ikke godkendt.<br>
+          <strong>Godkendt</strong>: låst til løn.<br>
+          <strong>Afregnet</strong>: Sendt afsted til løn.
         </p>
-      </div>
-
-      <div class="hero-badge-row">
-        <span class="tag-pill">Fra/til</span>
-        <span class="tag-pill">Hurtig måned</span>
-        <span class="tag-pill">Final timer</span>
       </div>
     </div>
   </aside>
