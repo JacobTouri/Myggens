@@ -364,27 +364,75 @@ def mine_vagter():
 def mine_vagter_historik():
     phone = session.get("freelancer_phone", "")
     if not phone:
-        # fallback – burde ikke ske, da freelancer_required kræver login
         return redirect(url_for("freelancer_login"))
 
     all_signups = database.get_signups_by_phone(phone)
 
-    # Find hvilke år der overhovedet findes vagter i
-    years = sorted({int(item["shift"]["date"][:4]) for item in all_signups}) or [date.today().year]
-
-    # Læs valgt år/måned fra query, ellers default til nu
-    year = request.args.get("year", type=int) or date.today().year
-    month = request.args.get("month", type=int) or date.today().month
+    # År dropdown: kun år der findes i data (fallback: i år)
+    years = sorted({int(item["shift"]["date"][:4]) for item in all_signups if item.get("shift") and item["shift"].get("date")}) or [date.today().year]
 
     today = date.today()
 
-    # Filtrér ned til vagter i den pågældende måned:
-    # - kun APPROVED
-    # - ikke cancelled
-    # - kun gennemført / tidligst synlig på selve dagen (<= i dag)
+    # Query params
+    from_date_str = (request.args.get("from_date") or "").strip()
+    to_date_str = (request.args.get("to_date") or "").strip()
+
+    # Hurtigvalg (måned)
+    year = request.args.get("year", type=int) or today.year
+    month = request.args.get("month", type=int) or today.month
+
+    # Find earliest date i data (til hvis kun "til" er sat)
+    earliest = None
+    for item in all_signups:
+        try:
+            d = datetime.strptime(item["shift"]["date"], "%Y-%m-%d").date()
+        except Exception:
+            continue
+        if earliest is None or d < earliest:
+            earliest = d
+    if earliest is None:
+        earliest = today
+
+    # Parse fra/til hvis udfyldt
+    use_range = bool(from_date_str or to_date_str)
+    from_date = None
+    to_date = None
+    period_label = None
+
+    if use_range:
+        if from_date_str:
+            try:
+                from_date = datetime.strptime(from_date_str, "%Y-%m-%d").date()
+            except Exception:
+                from_date = None
+        if to_date_str:
+            try:
+                to_date = datetime.strptime(to_date_str, "%Y-%m-%d").date()
+            except Exception:
+                to_date = None
+
+        # Defaults hvis kun én side er udfyldt
+        if from_date is None:
+            from_date = earliest
+        if to_date is None:
+            to_date = today
+
+        # Clamp: vis aldrig fremtid
+        if to_date > today:
+            to_date = today
+
+        # Swap hvis bruger vender dem om
+        if from_date > to_date:
+            from_date, to_date = to_date, from_date
+
+        period_label = f"{from_date.strftime('%d-%m-%Y')} → {to_date.strftime('%d-%m-%Y')}"
+
+    # Filtrér signups
     signups_in_period = []
     for item in all_signups:
         if item["status"] == STATUS_CANCELLED_BY_ADMIN:
+            continue
+        if item["status"] != STATUS_APPROVED:
             continue
 
         try:
@@ -392,15 +440,24 @@ def mine_vagter_historik():
         except Exception:
             continue
 
-        if (
-            dt.year == year
-            and dt.month == month
-            and item["status"] == STATUS_APPROVED
-            and dt <= today
-        ):
-            signups_in_period.append(item)
+        # Vis aldrig fremtid (tidligst synlig på dagen)
+        if dt > today:
+            continue
 
-    # Beregn totalt antal timer (brug admin-godkendt timetal hvis det findes)
+        if use_range:
+            if from_date <= dt <= to_date:
+                signups_in_period.append(item)
+        else:
+            if dt.year == year and dt.month == month:
+                signups_in_period.append(item)
+
+    # Sortér (nyeste øverst)
+    signups_in_period.sort(
+        key=lambda it: it["shift"]["date"],
+        reverse=True
+    )
+
+    # Beregn total baseret på admin-godkendt timetal hvis det findes
     def final_hours(item):
         if item.get("work_hours") is None:
             return 0.0
@@ -413,12 +470,16 @@ def mine_vagter_historik():
     return render_template(
         "mine_vagter_history.html",
         phone=phone,
+        years=years,
         year=year,
         month=month,
-        years=years,
+        from_date=(from_date.isoformat() if use_range and from_date else ""),
+        to_date=(to_date.isoformat() if use_range and to_date else ""),
+        period_label=period_label,
         signups=signups_in_period,
         total_hours=total_hours,
     )
+
 
 @app.post("/mine-vagter/timer/<int:signup_id>")
 @freelancer_required

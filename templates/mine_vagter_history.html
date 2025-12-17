@@ -9,7 +9,6 @@
     <div class="card-header">
       <div>
         <h1 style="margin:0;">Tidligere vagter</h1>
-        <div class="card-subtitle"></div>
       </div>
     </div>
 
@@ -17,15 +16,41 @@
       <a href="{{ url_for('mine_vagter') }}" class="btn btn-ghost">← Tilbage til Mine vagter</a>
     </p>
 
+    {% set month_names = {
+      1:"Januar",2:"Februar",3:"Marts",4:"April",5:"Maj",6:"Juni",
+      7:"Juli",8:"August",9:"September",10:"Oktober",11:"November",12:"December"
+    } %}
+
     <!-- Filter -->
     <div class="card" style="margin-top: 12px;">
       <h2 style="margin:0 0 10px 0;">Vælg periode</h2>
 
-      {% set month_names = {
-        1:"Januar",2:"Februar",3:"Marts",4:"April",5:"Maj",6:"Juni",
-        7:"Juli",8:"August",9:"September",10:"Oktober",11:"November",12:"December"
-      } %}
+      <!-- Primær: fra/til -->
+      <form method="get" style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+        <div style="min-width: 220px; flex: 1;">
+          <label for="from_date">Fra</label>
+          <input type="date" id="from_date" name="from_date" value="{{ from_date or '' }}">
+        </div>
 
+        <div style="min-width: 220px; flex: 1;">
+          <label for="to_date">Til</label>
+          <input type="date" id="to_date" name="to_date" value="{{ to_date or '' }}">
+          <div class="helper-text">Fremtidige datoer vises ikke.</div>
+        </div>
+
+        <div style="min-width: 120px;">
+          <button type="submit" class="btn btn-primary">Vis</button>
+        </div>
+
+        <div style="min-width: 120px;">
+          <a class="btn btn-secondary" href="{{ url_for('mine_vagter_historik') }}">Nulstil</a>
+        </div>
+      </form>
+
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,0.10);margin:14px 0;">
+
+      <!-- Hurtig genvej: måned -->
+      <div class="helper-text" style="margin-bottom: 8px;">Hurtigvalg</div>
       <form method="get" style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
         <div style="min-width: 180px; flex: 1;">
           <label for="year">År</label>
@@ -47,8 +72,8 @@
           </select>
         </div>
 
-        <div style="min-width: 120px;">
-          <button type="submit" class="btn btn-primary">Vis</button>
+        <div style="min-width: 140px;">
+          <button type="submit" class="btn btn-ghost">Vis måned</button>
         </div>
       </form>
     </div>
@@ -57,12 +82,18 @@
     <div class="card" style="margin-top: 12px;">
       <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-end;">
         <div>
-          <div class="helper-text">I alt denne måned</div>
+          <div class="helper-text">I alt i perioden</div>
           <div style="font-size: 26px; font-weight: 800; letter-spacing:-0.02em;">
             {{ "%.2f"|format(total_hours) }} timer
           </div>
-          <div class="helper-text">
-          </div>
+
+          {% if period_label %}
+            <div class="helper-text">Periode: <strong>{{ period_label }}</strong></div>
+          {% else %}
+            <div class="helper-text">
+              Timer vises som <strong>godkendt</strong> hvis Martin har godkendt dem.
+            </div>
+          {% endif %}
         </div>
 
         <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
@@ -73,7 +104,7 @@
     <!-- Liste -->
     {% if not signups %}
       <div class="card" style="margin-top: 12px;">
-        <div class="helper-text">Ingen vagter i den valgte måned.</div>
+        <div class="helper-text">Ingen vagter i den valgte periode.</div>
       </div>
     {% else %}
 
@@ -133,7 +164,7 @@
             </div>
 
             <div class="card" style="padding:10px 12px; background: rgba(255,255,255,0.02); flex:1; min-width: 220px;">
-              <div class="helper-text"> Timetal til løn</div>
+              <div class="helper-text">Finalt timetal (til løn)</div>
               <div style="font-size: 18px; font-weight: 800;">
                 {% if missing %}
                   —
@@ -166,13 +197,16 @@
       <div>
         <div class="hero-heading">Sådan læses status</div>
         <p class="hero-text">
-          <strong>Afventer godkendelse</strong>: timer er registreret, men ikke godkendt endnu.<br>
-          <strong>Godkendt</strong>: timetallet er låst til løn (kan være justeret).<br>
-          <strong>Afregnet</strong>: vagten er sendt til løn.
+          <strong>Afventer godkendelse</strong>: Dine Timer er registreret, men ikke godkendt endnu.<br>
+          <strong>Godkendt</strong>: Dine timer er godkendt og venter på at blive kørt til løn.<br>
+          <strong>Afregnet</strong>: Vagten er sendt til løn.
         </p>
       </div>
 
       <div class="hero-badge-row">
+        <span class="tag-pill">Fra/til</span>
+        <span class="tag-pill">Hurtig måned</span>
+        <span class="tag-pill">Final timer</span>
       </div>
     </div>
   </aside>
