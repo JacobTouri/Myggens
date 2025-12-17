@@ -62,13 +62,10 @@
             {{ "%.2f"|format(total_hours) }} timer
           </div>
           <div class="helper-text">
-            Timer vises som <strong>godkendt</strong> hvis Martin har godkendt dem.
           </div>
         </div>
 
         <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
-          <span class="tag-pill">Godkendt = final</span>
-          <span class="tag-pill">Afregnet = færdig</span>
         </div>
       </div>
     </div>
@@ -136,7 +133,7 @@
             </div>
 
             <div class="card" style="padding:10px 12px; background: rgba(255,255,255,0.02); flex:1; min-width: 220px;">
-              <div class="helper-text">Finalt timetal (til løn)</div>
+              <div class="helper-text"> Timetal til løn</div>
               <div style="font-size: 18px; font-weight: 800;">
                 {% if missing %}
                   —
@@ -171,7 +168,7 @@
         <p class="hero-text">
           <strong>Afventer godkendelse</strong>: timer er registreret, men ikke godkendt endnu.<br>
           <strong>Godkendt</strong>: timetallet er låst til løn (kan være justeret).<br>
-          <strong>Afregnet</strong>: vagten er betalt og færdig.
+          <strong>Afregnet</strong>: vagten er sendt til løn.
         </p>
       </div>
 

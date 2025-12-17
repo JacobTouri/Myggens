@@ -376,17 +376,31 @@ def mine_vagter_historik():
     year = request.args.get("year", type=int) or date.today().year
     month = request.args.get("month", type=int) or date.today().month
 
-    # Filtrér ned til vagter i den pågældende måned (kun APPROVED og ikke cancelled)
+    today = date.today()
+
+    # Filtrér ned til vagter i den pågældende måned:
+    # - kun APPROVED
+    # - ikke cancelled
+    # - kun gennemført / tidligst synlig på selve dagen (<= i dag)
     signups_in_period = []
     for item in all_signups:
         if item["status"] == STATUS_CANCELLED_BY_ADMIN:
             continue
 
-        dt = datetime.strptime(item["shift"]["date"], "%Y-%m-%d")
-        if dt.year == year and dt.month == month and item["status"] == STATUS_APPROVED:
+        try:
+            dt = datetime.strptime(item["shift"]["date"], "%Y-%m-%d").date()
+        except Exception:
+            continue
+
+        if (
+            dt.year == year
+            and dt.month == month
+            and item["status"] == STATUS_APPROVED
+            and dt <= today
+        ):
             signups_in_period.append(item)
 
-    # Beregn totalt antal timer (kun hvor work_hours er sat)
+    # Beregn totalt antal timer (brug admin-godkendt timetal hvis det findes)
     def final_hours(item):
         if item.get("work_hours") is None:
             return 0.0
@@ -405,7 +419,6 @@ def mine_vagter_historik():
         signups=signups_in_period,
         total_hours=total_hours,
     )
-
 
 @app.post("/mine-vagter/timer/<int:signup_id>")
 @freelancer_required
