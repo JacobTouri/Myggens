@@ -7,15 +7,38 @@
   /* ====== Periode-filter styling ====== */
   .range-grid{
     display:grid;
-    grid-template-columns: 1fr 1fr auto auto;
-    gap:10px;
-    align-items:end;
+    grid-template-columns: 1fr 1fr auto;
+    gap:12px;
+    align-items:start; /* vigtig: undgår “skæv” baseline */
   }
+
+  .range-field{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+
+  /* reserverer plads så Fra/Til altid har samme højde */
+  .range-field .helper-text{
+    min-height:16px;
+  }
+
+  .range-actions{
+    display:flex;
+    gap:10px;
+    align-items:flex-end;
+    padding-bottom:16px; /* matcher helper-text højden */
+  }
+
   @media (max-width: 720px){
     .range-grid{
       grid-template-columns: 1fr 1fr;
     }
-    .range-grid .btn{
+    .range-actions{
+      grid-column: 1 / -1;
+      justify-content:flex-end;
+    }
+    .range-actions .btn{
       width:100%;
     }
   }
@@ -57,34 +80,31 @@
       <a href="{{ url_for('mine_vagter') }}" class="btn btn-ghost">← Tilbage til Mine vagter</a>
     </p>
 
-    {% set month_names = {
-      1:"Januar",2:"Februar",3:"Marts",4:"April",5:"Maj",6:"Juni",
-      7:"Juli",8:"August",9:"September",10:"Oktober",11:"November",12:"December"
-    } %}
-
     <!-- FILTER -->
     <div class="card" style="margin-top:12px;">
       <h2 style="margin:0 0 10px 0;">Vælg periode</h2>
 
       <!-- FRA / TIL -->
       <form method="get" class="range-grid">
-        <div>
+        <div class="range-field">
           <label for="from_date">Fra</label>
           <input class="input-like" type="date" id="from_date" name="from_date" value="{{ from_date or '' }}">
+          <div class="helper-text">&nbsp;</div>
         </div>
 
-        <div>
+        <div class="range-field">
           <label for="to_date">Til</label>
           <input class="input-like" type="date" id="to_date" name="to_date" value="{{ to_date or '' }}">
-          <div class="helper-text">Fremtidige datoer vises ikke.</div>
+          <div class="helper-text">Fremtidige events vises ikke.</div>
         </div>
 
-        <button type="submit" class="btn btn-primary">Vis</button>
-        <a class="btn btn-secondary" href="{{ url_for('mine_vagter_historik') }}">Nulstil</a>
+        <div class="range-actions">
+          <button type="submit" class="btn btn-primary">Vis</button>
+          <a class="btn btn-secondary" href="{{ url_for('mine_vagter_historik') }}">Nulstil</a>
+        </div>
       </form>
 
       <hr style="border:none;border-top:1px solid rgba(255,255,255,0.10);margin:14px 0;">
-      </form>
     </div>
 
     <!-- KPI -->
