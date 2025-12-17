@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Myggen's vagter{% endblock %}</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-main: #050505;
+            --bg-card: #171717;
+            --bg-card-soft: #1f1f1f;
+            --accent: #ff7a1a;
+            --accent-soft: rgba(255, 122, 26, 0.16);
+            --accent-strong: #ff9a3a;
+            --text-main: #f5f5f5;
+            --text-muted: #b0b0b0;
+            --border-subtle: #333;
+            --danger: #ff4b4b;
+            --success: #3acb6a;
+            --warning: #ffd569;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            min-height: 100%;
+        }
+
+        body {
+            font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: radial-gradient(circle at top left, #2b2b2b 0, #050505 40%, #000 100%);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Global baggrundsbillede */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background-image:
+                radial-gradient(circle at 20% 10%, rgba(255, 122, 26, 0.18), rgba(0,0,0,0) 45%),
+                linear-gradient(to bottom, rgba(0,0,0,0.45), rgba(0,0,0,0.75)),
+                url("/static/img/myggen-bg-1.jpg");
+            background-size: cover;
+            background-position: center;
+            opacity: 1;
+            filter: saturate(1.05);
+            z-index: -2;
+        }
+
+        /* Slå global baggrund fra på login-sider */
+        body.no-global-bg::before {
+            display: none;
+        }
+
+        /* Login-sider: ingen mørk content-tint og ingen padding rundt om */
+        body.login-page .app-content {
+            padding: 0;
+            background: transparent;
+        }
+
+        .page-shell {
+            width: 100%;
+            max-width: 1100px;
+            padding: 16px;
+        }
+
+        .app-frame {
+            border-radius: 18px;
+            background: rgba(10, 10, 10, 0.92);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            box-shadow:
+                0 18px 60px rgba(0, 0, 0, 0.7),
+                0 0 0 1px rgba(255, 255, 255, 0.02);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: calc(100vh - 32px);
+        }
+
+        /* HEADER */
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border-subtle);
+            background: linear-gradient(to right, rgba(8,8,8,0.9), rgba(16,16,16,0.9));
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brand-logo {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            background: radial-gradient(circle at 30% 20%, #fff 0, #ff7a1a 40%, #7a2a00 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 18px;
+            color: #000;
+        }
+
+        .brand-text-main {
+            font-weight: 600;
+            letter-spacing: 0.03em;
+        }
+
+        .brand-text-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .tag-pill {
+            padding: 4px 9px;
+            border-radius: 999px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.09em;
+            border: 1px solid var(--accent-soft);
+            background: rgba(255, 122, 26, 0.04);
+            color: var(--accent-strong);
+        }
+
+        /* FLASH */
+        .flash-container { padding: 10px 18px 0; }
+        .flash {
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        .flash-info {
+            background: rgba(64, 157, 255, 0.12);
+            border: 1px solid rgba(64, 157, 255, 0.35);
+        }
+        .flash-success {
+            background: rgba(48, 199, 135, 0.12);
+            border: 1px solid rgba(48, 199, 135, 0.35);
+        }
+        .flash-error {
+            background: rgba(255, 75, 75, 0.15);
+            border: 1px solid rgba(255, 75, 75, 0.4);
+        }
+
+        /* CONTENT */
+        .app-content {
+            padding: 14px 18px 18px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            background: rgba(0,0,0,0.18);
+        }
+
+        h1, h2, h3 { margin-top: 0; color: #fff; }
+        h1 { font-size: 24px; }
+        h2 { font-size: 18px; }
+
+        p { color: var(--text-muted); line-height: 1.5; }
+        a { color: var(--accent-strong); }
+        a:hover { color: #ffd096; }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: transform 0.06s ease, box-shadow 0.06s ease, background 0.1s ease;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+            color: #000;
+            box-shadow: 0 6px 18px rgba(255, 122, 26, 0.35);
+        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(255, 122, 26, 0.5); }
+        .btn-primary:active { transform: translateY(0); box-shadow: 0 3px 8px rgba(255, 122, 26, 0.25); }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.04);
+            color: var(--text-main);
+            border: 1px solid rgba(255,255,255,0.12);
+        }
+        .btn-secondary:hover { background: rgba(255,255,255,0.08); }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px dashed rgba(255,255,255,0.16);
+        }
+        .btn-ghost:hover { border-style: solid; color: var(--accent-strong); }
+
+        .btn-danger {
+            background: rgba(255, 75, 75, 0.08);
+            color: #ff9a9a;
+            border: 1px solid rgba(255, 75, 75, 0.35);
+        }
+
+        /* UX: Admin-knap */
+        .btn-admin {
+            background: rgba(255, 122, 26, 0.10);
+            color: #ffd0a8;
+            border: 1px solid rgba(255, 122, 26, 0.55);
+        }
+        .btn-admin:hover {
+            background: rgba(255, 122, 26, 0.18);
+            transform: translateY(-1px);
+        }
+
+        /* Layout helpers */
+        .layout-two-column {
+            display: grid;
+            grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr);
+            gap: 16px;
+        }
+        @media (max-width: 800px) {
+            .layout-two-column { grid-template-columns: minmax(0, 1fr); }
+        }
+
+        .card {
+            background: rgba(25, 25, 25, 0.78);
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.10);
+            padding: 14px 16px;
+            backdrop-filter: blur(6px);
+        }
+        .card-soft { background: var(--bg-card-soft); }
+
+        .card-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            gap: 8px;
+        }
+        .card-subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .helper-text {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Inputs */
+        label { font-size: 13px; color: var(--text-muted); }
+        input[type="text"],
+        input[type="password"],
+        input[type="time"],
+        input[type="number"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: #111;
+            color: var(--text-main);
+            font-size: 14px;
+            outline: none;
+            transition: border 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--accent-strong);
+            box-shadow: 0 0 0 1px rgba(255,122,26,0.6);
+            background: #141414;
+        }
+        input::placeholder { color: #666; }
+
+        /* Hero panel + galleri */
+        .hero-panel {
+            position: relative;
+            border-radius: 14px;
+            overflow: hidden;
+            background: radial-gradient(circle at top, rgba(255,122,26,0.15), rgba(0,0,0,0.95));
+            border: 1px solid rgba(255,255,255,0.08);
+            min-height: 220px;
+        }
+        .hero-panel-inner {
+            position: relative;
+            z-index: 2;
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+        }
+        .hero-heading { font-size: 18px; font-weight: 600; }
+        .hero-text { font-size: 13px; color: var(--text-muted); }
+        .hero-badge-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 6px;
+        }
+        .hero-bg-rotator {
+            position: absolute;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+            opacity: 0.35;
+            filter: saturate(1.2);
+            animation: heroRotate 18s infinite linear;
+        }
+        @keyframes heroRotate {
+            0%   { background-image: url("/static/img/myggen-gallery-1.jpg"); }
+            100% { background-image: url("/static/img/myggen-gallery-1.jpg"); }
+        }
+
+        /* LOGIN / LANDING PAGES */
+        .login-bg {
+            position: relative;
+            min-height: calc(100vh - 140px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-bg::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(
+                    to bottom,
+                    rgba(0,0,0,0.35),
+                    rgba(0,0,0,0.55)
+                ),
+                url("/static/img/myggens-log-in-background.jpg");
+
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
+
+            transform: scale(1.04);
+            filter: saturate(1.05) contrast(0.95);
+
+            z-index: 0;
+        }
+
+        .login-card {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 420px;
+
+            background: rgba(20, 20, 20, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.12);
+        }
+
+        /* =========================
+           ADMIN SIDEBAR LAYOUT
+           (kun for admin session)
+           ========================= */
+        .admin-shell {
+            display: grid;
+            grid-template-columns: 240px minmax(0, 1fr);
+            gap: 14px;
+            align-items: start;
+        }
+
+        .admin-nav {
+            position: sticky;
+            top: 14px;
+            align-self: start;
+
+            background: rgba(25, 25, 25, 0.78);
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.10);
+            padding: 12px 12px 4px;
+            backdrop-filter: blur(6px);
+        }
+
+        .admin-nav-header {
+            padding: 6px 8px 10px;
+        }
+
+        .admin-nav-title {
+            font-weight: 650;
+        }
+
+        .admin-nav-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .admin-nav a {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+
+            padding: 10px 10px;
+            border-radius: 12px;
+            text-decoration: none;
+
+            color: var(--text-main);
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+
+            margin: 0 0 8px 0;
+        }
+
+        .admin-nav a:hover {
+            background: rgba(255,255,255,0.07);
+            border-color: rgba(255,255,255,0.12);
+        }
+
+        .admin-nav .nav-right {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .admin-content {
+            padding: 0;
+            background: transparent;
+        }
+
+        @media (max-width: 900px) {
+            .admin-shell {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Mobil */
+        @media (max-width: 600px) {
+            .app-header { padding: 10px 12px; }
+            .app-content { padding: 10px 12px 14px; }
+            .card { padding: 12px; }
+            h1 { font-size: 20px; }
+        }
+
+
+        /* Admin wide-mode: mere plads til tabeller og admin-views */
+        body.admin-wide .page-shell {
+        max-width: 1500px; /* justér til 1400-1700 efter smag */
+        }
+
+        @media (max-width: 900px) {
+        body.admin-wide .page-shell {
+            max-width: 1100px; /* falder tilbage på “normal” på små skærme */
+        }
+        }
+    </style>
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    <div class="page-shell">
+        <div class="app-frame">
+
+            <header class="app-header">
+                <div class="brand">
+                    <div>
+                        <div class="brand-text-main">Myggens vagter</div>
+                        <div class="brand-text-sub">Selskaber, Grill, Events</div>
+                    </div>
+                </div>
+                <div class="header-right">
+                    {% if session.get("freelancer_person_id") %}
+                        <a href="{{ url_for('vagtoversigt') }}" class="btn btn-secondary">Arrangementoversigt</a>
+                        <a href="{{ url_for('mine_vagter') }}" class="btn btn-secondary">Mine vagter</a>
+                    {% endif %}
+
+                    {% if session.get("is_admin") %}
+                        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-admin">⚙ Admin</a>
+                    {% else %}
+                        <a href="{{ url_for('admin_login') }}" class="btn btn-admin">🔒 Admin login</a>
+                    {% endif %}
+
+                    {% if session.get("freelancer_name") %}
+                        <span class="tag-pill">{{ session.freelancer_name|upper }}</span>
+                    {% elif session.get("is_admin") %}
+                        <span class="tag-pill">ADMIN</span>
+                    {% endif %}
+
+                    {% if session.get("freelancer_person_id") %}
+                        <a href="{{ url_for('freelancer_logout') }}" class="btn btn-ghost">Log ud</a>
+                    {% elif session.get("is_admin") %}
+                        <a href="{{ url_for('admin_logout') }}" class="btn btn-ghost">Log ud</a>
+                    {% endif %}
+                </div>
+            </header>
+
+            <div class="flash-container">
+                {% with messages = get_flashed_messages() %}
+                    {% if messages %}
+                        {% for msg in messages %}
+                            <div class="flash flash-info">{{ msg }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+            </div>
+
+            <!-- ✅ ÉN wrapper, så vi kan undgå at definere block 'content' to gange -->
+            <div class="app-content {% if session.get('is_admin') %}admin-shell{% endif %}">
+                {% if session.get("is_admin") %}
+                    <aside class="admin-nav">
+                        <div class="admin-nav-header">
+                            <div class="admin-nav-title">⚙ Admin</div>
+                            <div class="admin-nav-sub">Overblik, bemanding, timer</div>
+                        </div>
+
+                        <a href="{{ url_for('admin_dashboard') }}">
+                            <span>Dashboard</span><span class="nav-right">→</span>
+                        </a>
+
+                        <a href="{{ url_for('admin_overview') }}">
+                            <span>Bemanding</span><span class="nav-right">→</span>
+                        </a>
+
+                        <a href="{{ url_for('admin_person_list') }}">
+                            <span>Personale</span><span class="nav-right">→</span>
+                        </a>
+
+                        <a href="{{ url_for('admin_timer') }}">
+                            <span>Timer / løn</span><span class="nav-right">→</span>
+                        </a>
+
+                        <a href="{{ url_for('admin_history') }}">
+                            <span>Historik</span><span class="nav-right">→</span>
+                        </a>
+                    </aside>
+                {% endif %}
+
+                <main class="{% if session.get('is_admin') %}admin-content{% endif %}">
+                    {% block content %}{% endblock %}
+                </main>
+            </div>
+
+        </div>
+    </div>
+    </body>
+</html>

@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}Personkartotek – Myggen's{% endblock %}
+{% block body_class %}admin-wide{% endblock %}
+
+{% block extra_head %}
+<style>
+  .page-top{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .page-title{ margin:0; }
+  .subtitle{ color: var(--text-muted); margin-top: 4px; }
+
+  .btn-row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .btn-small{ padding: 7px 12px; font-size: 13px; }
+
+  .pill{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    white-space: nowrap;
+  }
+  .pill.ok { border-color: rgba(48,199,135,0.35); background: rgba(48,199,135,0.10); }
+  .pill.warn { border-color: rgba(255,213,105,0.35); background: rgba(255,213,105,0.10); }
+  .pill.bad { border-color: rgba(255,75,75,0.35); background: rgba(255,75,75,0.10); }
+
+  .table-wrap{
+    overflow:auto;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(0,0,0,0.15);
+  }
+
+  /* ✅ Stop “børnetabeller” */
+  table{
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 0;
+    table-layout: auto;
+  }
+  th, td{
+    padding: 10px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    font-size: 14px;
+    white-space: normal;
+    word-break: break-word;
+    vertical-align: top;
+  }
+  th{
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: rgba(25,25,25,0.95);
+    color: var(--text-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  tr:hover td{ background: rgba(255,255,255,0.03); }
+
+  .nowrap{ white-space: nowrap; }
+  .cell-center{ text-align:center; }
+
+  .top-actions{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .search{
+    min-width: 260px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- TOP CARD -->
+<div class="card">
+  <div class="page-top">
+    <div>
+      <h1 class="page-title">Personkartotek</h1>
+      <div class="subtitle">Overblik over alle freelancere i systemet</div>
+    </div>
+
+    <div class="btn-row">
+      <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">← Tilbage</a>
+      <a href="{{ url_for('admin_overview') }}" class="btn btn-secondary">Bemanding</a>
+      <a href="{{ url_for('admin_timer') }}" class="btn btn-secondary">Timer / løn</a>
+    </div>
+  </div>
+
+  <hr style="border:none; border-top:1px solid rgba(255,255,255,0.10); margin:14px 0;">
+
+  <div class="top-actions">
+    <div class="btn-row">
+      <span class="pill">👥 {{ persons|length }} personer</span>
+      <span class="pill">📇 Kartotek</span>
+    </div>
+
+    <div class="search">
+      <label for="personFilter" class="helper-text" style="display:block; margin-bottom:6px;">
+        Søg (navn, telefon, dato…)
+      </label>
+      <input id="personFilter" type="text" placeholder="Søg i personkartotek…">
+    </div>
+  </div>
+</div>
+
+{% if not persons %}
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h2 style="margin:0;">Ingen personer endnu</h2>
+        <div class="card-subtitle">Personer dukker op, når freelancere logger ind eller tilmelder sig en vagt.</div>
+      </div>
+    </div>
+  </div>
+{% else %}
+
+  <!-- TABLE CARD -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h2 style="margin:0;">Liste</h2>
+        <div class="card-subtitle">Åbn profil for at se vagter og status</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table id="personTable">
+        <thead>
+          <tr>
+            <th>Navn</th>
+            <th class="nowrap">Telefon</th>
+            <th class="nowrap">Oprettet</th>
+            <th class="nowrap">Handlinger</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in persons %}
+            <tr>
+              <td><strong>{{ p.name }}</strong></td>
+              <td class="nowrap">{{ p.phone }}</td>
+              <td class="nowrap">{{ p.created_at }}</td>
+              <td class="nowrap">
+                <div class="btn-row">
+                  <a class="btn btn-primary btn-small" href="{{ url_for('admin_person_detail', person_id=p.id) }}">Se profil</a>
+
+                  <form method="post"
+                        action="{{ url_for('admin_person_delete', person_id=p.id) }}"
+                        style="margin:0;"
+                        onsubmit="return confirm('Slet {{ p.name }} fra kartoteket? (Alle tilmeldinger slettes også)');">
+                    <button class="btn btn-danger btn-small" type="submit">Slet</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+{% endif %}
+
+<script>
+(function(){
+  const input = document.getElementById("personFilter");
+  const table = document.getElementById("personTable");
+  if (!input || !table) return;
+
+  const rows = Array.from(table.querySelectorAll("tbody tr"));
+  input.addEventListener("input", () => {
+    const q = input.value.toLowerCase().trim();
+    rows.forEach(r => {
+      const txt = r.innerText.toLowerCase();
+      r.style.display = txt.includes(q) ? "" : "none";
+    });
+  });
+})();
+</script>
+
+{% endblock %}

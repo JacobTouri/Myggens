@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}Vagter hos Myggen's{% endblock %}
+
+{% block content %}
+
+<style>
+  /* Liste-layout: ét tydeligt card pr. vagt */
+  .shift-list{
+    display:flex;
+    flex-direction:column;
+    gap: 12px; /* ✅ separation mellem arrangementer */
+    margin-top: 12px;
+  }
+
+  .shift-card{
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(0,0,0,0.18);
+    transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+  }
+
+  .shift-card:hover{
+    transform: translateY(-1px);
+    border-color: rgba(255,255,255,0.16);
+    background: rgba(0,0,0,0.22);
+  }
+
+  .shift-title-row{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap: 10px;
+    flex-wrap:wrap;
+  }
+
+  .shift-date{
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    font-size: 16px;
+    margin-bottom: 2px;
+  }
+
+  .shift-meta{
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .shift-desc{
+    margin-top: 8px;
+    font-weight: 700;
+    font-size: 16px;
+  }
+
+  .shift-status-text{
+    margin-top: 8px;
+    color: var(--text-muted);
+  }
+
+  .shift-actions{
+    margin-top: 12px;
+    display:flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items:center;
+  }
+
+  /* Sæt “mangler” / “fyldt” som pille, men behold din eksisterende tag-pill styling */
+  .tag-pill.ok{
+    border-color: rgba(58,203,106,0.6);
+    background: rgba(58,203,106,0.18);
+    color: #9ff2b7;
+  }
+</style>
+
+<div class="layout-two-column">
+  <!-- Venstre: vagtoversigt -->
+  <section class="card card-soft">
+    <div class="card-header">
+      <h1 style="margin:0;">Eventkalender</h1>
+    </div>
+
+    <p style="margin-top:0;">
+      Tryk på et event for at melde dig til.  
+    </p>
+
+    <div id="shift-list" class="shift-list">
+      {% for shift in shifts %}
+        {% set remaining = shift.needed - shift.approved %}
+
+        <!-- ✅ Nu er hver vagt et rigtigt card -->
+        <div class="shift-card" data-shift-id="{{ shift.id }}">
+          <div class="shift-title-row">
+            <div>
+              <div class="shift-date">{{ shift.date|dkdate }}</div>
+              <div class="shift-meta">
+                Kl. {{ shift.time }} – {{ shift.location }}
+              </div>
+            </div>
+
+            {% if remaining > 0 %}
+              <div class="tag-pill">Mangler {{ remaining }}</div>
+            {% else %}
+              <div class="tag-pill ok">Holdet er fyldt</div>
+            {% endif %}
+          </div>
+
+          {% if shift.description %}
+            <div class="shift-desc">{{ shift.description }}</div>
+          {% endif %}
+
+          {% if remaining > 0 %}
+            <p class="shift-status-text">
+              Mangler: {{ remaining }} person(er)
+            </p>
+
+            <div class="shift-actions signup-area">
+              <form method="get" action="/tilmeld/{{ shift.id }}" style="margin:0;">
+                <button type="submit" class="btn btn-primary">
+                  Meld dig på
+                </button>
+              </form>
+            </div>
+          {% else %}
+            <p class="shift-status-text">Holdet er fyldt ✅</p>
+            <div class="shift-actions signup-area"></div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- Højre: info/CTA -->
+  <aside class="hero-panel">
+    <div class="hero-bg-rotator"></div>
+    <div class="hero-panel-inner">
+      <div>
+        <div class="hero-heading">Sådan fungerer vagterne</div>
+        <p class="hero-text">
+          1. Find en vagt der passer dig.<br>
+          2. Meld dig på.<br>
+          3. Martin godkender dig.<br>
+          4. Se dine vagter og log dine timer under <em>Mine vagter</em>.
+        </p>
+      </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  let phone = null;
+  try {
+    phone = localStorage.getItem("myggen_phone");
+  } catch (e) {
+    console.log("localStorage ikke tilgængelig:", e);
+  }
+  if (!phone) return;
+
+  fetch("/api/signups-for-phone?phone=" + encodeURIComponent(phone))
+    .then(res => res.json())
+    .then(data => {
+      if (!data || !data.signups) return;
+
+      const signupsByShift = {};
+      data.signups.forEach(s => {
+        if (s.status === "CANCELLED_BY_ADMIN") return;
+        signupsByShift[s.shift_id] = s.status;
+      });
+
+      document.querySelectorAll(".shift-card").forEach(card => {
+        const shiftId = parseInt(card.getAttribute("data-shift-id"), 10);
+        const status = signupsByShift[shiftId];
+        if (!status) return;
+
+        const statusTextEl = card.querySelector(".shift-status-text");
+        const signupArea = card.querySelector(".signup-area");
+
+        let extraText = "";
+        if (status === "REQUESTED") {
+          extraText = "Du er tilmeldt – afventer godkendelse fra Martin.";
+        } else if (status === "APPROVED") {
+          extraText = "Du er sat på denne vagt.";
+        } else if (status === "RELEASE_REQUESTED") {
+          extraText = "Du er på vagten, men har bedt om fri.";
+        } else {
+          return;
+        }
+
+        if (statusTextEl) {
+          statusTextEl.textContent = extraText;
+        } else {
+          const p = document.createElement("p");
+          p.className = "shift-status-text";
+          p.textContent = extraText;
+          card.appendChild(p);
+        }
+
+        if (signupArea) {
+          signupArea.innerHTML = ""; // fjern "Meld dig på"-knap
+        }
+      });
+    })
+    .catch(err => console.log("Fejl ved hentning af tilmeldinger:", err));
+});
+</script>
+
+{% endblock %}

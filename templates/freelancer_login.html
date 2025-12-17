@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}Freelancer login – Myggen's{% endblock %}
+
+{% block body_class %}login-page no-global-bg{% endblock %}
+
+{% block content %}
+<div class="layout-two-column">
+    <!-- Formular-side -->
+    <div class="card">
+        <div class="card-header">
+            <h1>Freelancer login</h1>
+        </div>
+        <p>Log ind én gang, og så kan du melde dig på vagter, se dine tider og ønske fri direkte fra mobilen.</p>
+
+        {% if error %}
+            <div class="flash flash-error" style="margin-bottom: 10px;">
+                <strong>{{ error }}</strong>
+            </div>
+        {% endif %}
+
+        <form method="post" style="margin-top: 10px;">
+            <div style="margin-bottom: 10px;">
+                <label for="name">Navn</label><br>
+                <input type="text" name="name" id="name" required placeholder="Dit navn">
+            </div>
+
+            <div style="margin-bottom: 12px;">
+                <label for="phone">Telefonnummer</label><br>
+                <input type="text" name="phone" id="phone" required placeholder="fx 20 12 34 56">
+                <div class="helper-text">Vi bruger dit nummer til at finde dine vagter.</div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                Log ind
+            </button>
+        </form>
+    </div>
+
+    <!-- Hero / billed-side -->
+    <aside class="hero-panel">
+        <div class="hero-bg-rotator"></div>
+        <div class="hero-panel-inner">
+            <div>
+                <div class="hero-heading">Velkommen i Myggens crew</div>
+                <p class="hero-text">
+                    Hold styr på dine vagter, timer og afbud ét sted.  
+                    Systemet er lavet til at være nemt fra mobilen – også når du står midt i køkkenet.
+                </p>
+            </div>
+
+            <div class="hero-badge-row">
+                <span class="tag-pill">Grill</span>
+                <span class="tag-pill">Events</span>
+                <span class="tag-pill">Munken</span>
+                <span class="tag-pill">Team Myggen</span>
+            </div>
+        </div>
+    </aside>
+</div>
+{% endblock %}

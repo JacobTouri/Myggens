@@ -1,0 +1,1059 @@
+from functools import wraps
+from datetime import date, datetime, timedelta
+
+
+from flask import (
+    Flask,
+    render_template,
+    request,
+    abort,
+    redirect,
+    url_for,
+    jsonify,
+    session,
+    flash,
+)
+
+import database
+from database import (
+    STATUS_REQUESTED,
+    STATUS_APPROVED,
+    STATUS_RELEASE_REQUESTED,
+    STATUS_CANCELLED_BY_ADMIN,
+)
+
+app = Flask(__name__)
+
+# Secret key til session (brug evt. noget mere hemmeligt i produktion)
+app.secret_key = "skift-mig-til-noget-hemmeligt"
+
+database.init_db()
+
+@app.context_processor
+def inject_now():
+    return {"now": datetime.now}
+
+@app.context_processor
+def inject_admin_notifications():
+    """
+    Gør pending-antal tilgængeligt i templates som:
+    - pending_total
+    - pending_signups
+    - pending_releases
+    """
+    if not session.get("is_admin"):
+        return {}
+
+    pending = database.get_pending_admin_actions()
+    return {
+        "pending_total": pending["pending_total"],
+        "pending_signups": pending["pending_signups"],
+        "pending_releases": pending["pending_releases"],
+    }
+
+from datetime import datetime
+
+@app.template_filter("dkdate")
+def dkdate(value):
+    """Konverterer ISO 'YYYY-MM-DD' til dansk 'DD-MM-YYYY'."""
+    if not value:
+        return ""
+    try:
+        d = datetime.strptime(value, "%Y-%m-%d")
+        return d.strftime("%d-%m-%Y")
+    except Exception:
+        return value
+
+
+
+def parse_danish_date(d: str) -> str | None:
+    """
+    Accepterer fx:
+    - '21-12-2025'
+    - '21/12/2025'
+    - '21.12.2025'
+    - '2025-12-21'
+    og returnerer ISO 'YYYY-MM-DD' eller None ved fejl.
+    """
+    if not d:
+        return None
+
+    cleaned = d.strip().replace("/", "-").replace(".", "-")
+
+    # Først prøver vi dansk format
+    try:
+        return datetime.strptime(cleaned, "%d-%m-%Y").strftime("%Y-%m-%d")
+    except ValueError:
+        pass
+
+    # Så prøver vi ISO
+    try:
+        return datetime.strptime(cleaned, "%Y-%m-%d").strftime("%Y-%m-%d")
+    except ValueError:
+        return None
+
+def format_danish_date(date_iso: str) -> str:
+    """Konverterer '2025-12-11' → '11-12-2025'."""
+    try:
+        parts = date_iso.split("-")
+        if len(parts) != 3:
+            return date_iso
+        year, month, day = parts
+        return f"{day}-{month}-{year}"
+    except:
+        return date_iso
+
+
+
+# =====================================================
+# Admin helper: kun adgang hvis man er logget ind som admin
+# =====================================================
+def admin_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not session.get("is_admin"):
+            return redirect(url_for("admin_login"))
+        return f(*args, **kwargs)
+
+    return wrapper
+
+def freelancer_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not session.get("freelancer_person_id"):
+            return redirect(url_for("freelancer_login"))
+        return f(*args, **kwargs)
+    return wrapper
+
+
+# ============================
+# Offentlige sider (freelancer)
+# ============================
+
+@app.route("/")
+def landing():
+    # Hvis man allerede er logget ind, skal man ikke se gatewayen
+    if session.get("freelancer_person_id"):
+        return redirect(url_for("vagtoversigt"))
+    if session.get("is_admin"):
+        return redirect(url_for("admin_dashboard"))
+    return render_template("landing.html")
+
+
+
+@app.route("/vagter")
+@freelancer_required
+def vagtoversigt():
+    shifts = database.get_all_shifts()
+    today_str = date.today().isoformat()  # fx '2025-12-10'
+    future_shifts = [s for s in shifts if s["date"] >= today_str]
+    return render_template("index.html", shifts=future_shifts)
+
+
+
+
+@app.route("/tilmeld/<int:shift_id>", methods=["GET", "POST"])  
+@freelancer_required
+def tilmeld(shift_id):
+    shift = database.get_shift(shift_id)
+    if shift is None:
+        abort(404)
+
+    message = None
+    error = None
+
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        phone = request.form.get("phone", "").strip()
+        availability_type = request.form.get("availability_type", "any")
+        available_from = request.form.get("available_from", "").strip()  # 'HH:MM'
+
+        if not name or not phone:
+            error = "Udfyld både navn og telefon."
+        elif not phone.replace(" ", "").isdigit() or len(phone.replace(" ", "")) < 6:
+            error = "Tjek dit telefonnummer – det ser forkert ud."
+        elif availability_type == "from" and not available_from:
+            error = "Vælg et tidspunkt, hvis du ikke kan hele dagen."
+        else:
+            if availability_type != "from":
+                available_from_value = None
+            else:
+                available_from_value = available_from  # fx '14:00'
+
+            signup_id = database.create_signup(
+                shift_id,
+                name,
+                phone,
+                STATUS_REQUESTED,
+                available_from=available_from_value,
+            )
+            if signup_id is None:
+                error = "Du er allerede tilmeldt denne vagt."
+            else:
+                print(
+                    "NY TILMELDING:",
+                    signup_id,
+                    shift_id,
+                    name,
+                    phone,
+                    available_from_value,
+                )
+                message = "Din tilmelding er modtaget!"
+
+    return render_template("tilmeld.html", shift=shift, message=message, error=error)
+
+
+@app.route("/freelancer/login", methods=["GET", "POST"])
+def freelancer_login():
+    error = None
+
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        phone = request.form.get("phone", "").strip()
+
+        if not name or not phone:
+            error = "Udfyld både navn og telefonnummer."
+        elif not phone.replace(" ", "").isdigit():
+            error = "Telefonnummer skal være tal."
+        else:
+            # Opret eller find personen i databasen
+            person_id = database.get_or_create_person(name, phone)
+
+            # Læg det i session
+            session["freelancer_person_id"] = person_id
+            session["freelancer_name"] = name
+            session["freelancer_phone"] = phone.replace(" ", "")
+
+            flash("Du er nu logget ind som freelancer hos Myggens")
+            return redirect(url_for("vagtoversigt"))
+
+    return render_template("freelancer_login.html", error=error)
+
+
+@app.route("/freelancer/logout")
+def freelancer_logout():
+    session.pop("freelancer_person_id", None)
+    session.pop("freelancer_name", None)
+    session.pop("freelancer_phone", None)
+    flash("Du er logget ud.")
+    return redirect(url_for("freelancer_login"))
+
+@app.route("/admin/personer")
+@admin_required
+def admin_person_list():
+    persons = database.get_all_persons()
+    return render_template("admin_person_list.html", persons=persons)
+
+@app.route("/admin/personer/<int:person_id>")
+@admin_required
+def admin_person_detail(person_id):
+    person = database.get_person(person_id)
+    if not person:
+        abort(404)
+
+    signups = database.get_signups_for_person(person_id)
+    return render_template(
+        "admin_person_detail.html",
+        person=person,
+        signups=signups,
+    )
+
+
+@app.post("/admin/personer/<int:person_id>/delete")
+@admin_required
+def admin_person_delete(person_id):
+    database.delete_person(person_id)
+    flash("Personen er fjernet fra kartoteket.")
+    return redirect(url_for("admin_person_list"))
+
+
+@app.route("/mine-vagter", methods=["GET", "POST"])
+@freelancer_required
+def mine_vagter():
+    # Default: brug telefonnummeret fra session
+    phone = session.get("freelancer_phone", "")
+
+    # Tillad override via form eller query (samme som før)
+    if request.method == "POST":
+        phone = request.form.get("phone", "").strip() or phone
+    else:
+        phone = request.args.get("phone", "").strip() or phone
+
+    upcoming_signups = []
+    unlogged_signups = []
+    has_any_signups = False
+
+    if phone:
+        all_signups = database.get_signups_by_phone(phone)
+        has_any_signups = bool(all_signups)
+
+        today_str = date.today().isoformat()
+        phone_clean = phone.replace(" ", "")
+
+        # Kommende vagter
+        upcoming_signups = [
+            item for item in all_signups
+            if item["shift"]["date"] >= today_str
+            and item["status"] != STATUS_CANCELLED_BY_ADMIN
+        ]
+
+        # Tidligere vagter hvor man var godkendt
+        past_approved = [
+            item for item in all_signups
+            if item["shift"]["date"] < today_str
+            and item["status"] == STATUS_APPROVED
+        ]
+
+        # Ud af dem: kun dem hvor der IKKE er registreret timer endnu
+        unlogged_signups = [
+            item for item in past_approved
+            if not item["work_hours"]
+        ]
+
+        # 🔥 NYT: tilføj co-workers til hver kommende vagt
+        for item in upcoming_signups:
+            shift_id = item["shift"]["id"]
+            all_for_shift = database.get_signups_for_shift_with_hours(shift_id)
+
+            # Vis kun andre, der er godkendt på vagten
+            coworkers = [
+                su for su in all_for_shift
+                if su["status"] == STATUS_APPROVED
+                and su["phone"] != phone_clean
+            ]
+
+            item["coworkers"] = coworkers
+
+    return render_template(
+        "mine_vagter.html",
+        phone=phone,
+        upcoming_signups=upcoming_signups,
+        unlogged_signups=unlogged_signups,
+        has_any_signups=has_any_signups,
+    )
+
+@app.route("/mine-vagter/historik")
+@freelancer_required
+def mine_vagter_historik():
+    phone = session.get("freelancer_phone", "")
+    if not phone:
+        # fallback – burde ikke ske, da freelancer_required kræver login
+        return redirect(url_for("freelancer_login"))
+
+    all_signups = database.get_signups_by_phone(phone)
+
+    # Find hvilke år der overhovedet findes vagter i
+    years = sorted({int(item["shift"]["date"][:4]) for item in all_signups}) or [date.today().year]
+
+    # Læs valgt år/måned fra query, ellers default til nu
+    year = request.args.get("year", type=int) or date.today().year
+    month = request.args.get("month", type=int) or date.today().month
+
+    # Filtrér ned til vagter i den pågældende måned (kun APPROVED og ikke cancelled)
+    signups_in_period = []
+    for item in all_signups:
+        if item["status"] == STATUS_CANCELLED_BY_ADMIN:
+            continue
+
+        dt = datetime.strptime(item["shift"]["date"], "%Y-%m-%d")
+        if dt.year == year and dt.month == month and item["status"] == STATUS_APPROVED:
+            signups_in_period.append(item)
+
+    # Beregn totalt antal timer (kun hvor work_hours er sat)
+    total_hours = sum((item["work_hours"] or 0) for item in signups_in_period)
+
+    return render_template(
+        "mine_vagter_history.html",
+        phone=phone,
+        year=year,
+        month=month,
+        years=years,
+        signups=signups_in_period,
+        total_hours=total_hours,
+    )
+
+
+@app.post("/mine-vagter/timer/<int:signup_id>")
+@freelancer_required
+def freelancer_log_hours(signup_id):
+    signup = database.get_signup(signup_id)
+    if not signup:
+        abort(404)
+
+    # Sikkerhed: sørg for at det er den rigtige freelancer
+    session_phone = session.get("freelancer_phone")
+    if not session_phone or signup["phone"] != session_phone:
+        abort(403)
+
+    work_start = request.form.get("work_start", "").strip()
+    work_end = request.form.get("work_end", "").strip()
+
+    if not work_start or not work_end:
+        flash("Udfyld både start- og sluttid.")
+        return redirect(url_for("mine_vagter", phone=session_phone))
+
+    # Validér HH:MM og beregn timer
+    try:
+        start_dt = datetime.strptime(work_start, "%H:%M")
+        end_dt = datetime.strptime(work_end, "%H:%M")
+    except ValueError:
+        flash("Tider skal være i format HH:MM.")
+        return redirect(url_for("mine_vagter", phone=session_phone))
+
+    delta = end_dt - start_dt
+    if delta.total_seconds() < 0:
+        # Hvis slut er "efter midnat" – antag næste dag
+        delta += timedelta(days=1)
+
+    hours = round(delta.total_seconds() / 3600.0, 2)
+
+    database.set_signup_worked_hours(signup_id, work_start, work_end, hours)
+    flash("Dine timer er gemt.")
+    return redirect(url_for("mine_vagter", phone=session_phone))
+
+
+@app.route("/anmod-fri/<int:signup_id>", methods=["POST"])
+@freelancer_required
+def anmod_fri(signup_id):
+    signup = database.get_signup(signup_id)
+    if signup is None:
+        abort(404)
+
+    phone = signup["phone"]
+
+    if signup["status"] == STATUS_APPROVED:
+        database.set_signup_status(signup_id, STATUS_RELEASE_REQUESTED)
+        print("ANMODNING OM FRI:", signup_id)
+
+    return redirect(url_for("mine_vagter", phone=phone))
+
+
+@app.get("/api/signups-for-phone")
+def api_signups_for_phone():
+    """Brugt af forsiden til at markere vagter, man allerede er tilmeldt."""
+    phone = request.args.get("phone", "").strip()
+    if not phone:
+        return jsonify({"signups": []})
+
+    signups = database.get_signups_by_phone(phone)
+    # Vi reducerer til: shift_id -> status
+    # CANCELLED_BY_ADMIN behandles som "ingen tilmelding"
+    data = [
+        {
+            "shift_id": item["shift"]["id"],
+            "status": item["status"],
+        }
+        for item in signups
+        if item["status"] != STATUS_CANCELLED_BY_ADMIN
+    ]
+    return jsonify({"signups": data})
+
+
+
+# ============================
+# Admin login / logout
+# ============================
+
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login():
+    error = None
+
+    if request.method == "POST":
+        password = request.form.get("password", "")
+        if password == "Myggens":
+            session["is_admin"] = True
+            return redirect(url_for("admin_dashboard"))
+        else:
+            error = "Forkert kodeord."
+
+    return render_template("admin_login.html", error=error)
+
+
+@app.route("/admin/logout")
+def admin_logout():
+    session.pop("is_admin", None)
+    return redirect(url_for("landing"))
+
+# ============================
+# Admin dashboard + vagt-detaljer 
+# ============================
+
+@app.route("/admin")
+@admin_required
+def admin_dashboard():
+    all_shifts = database.get_all_shifts_admin()
+    active_shifts = [s for s in all_shifts if s["is_active"] == 1]
+    archived_shifts = [s for s in all_shifts if s["is_active"] == 0]
+
+    today = date.today()
+
+    for s in active_shifts:
+        needed = s.get("needed") or 0
+        approved = s.get("approved") or 0
+        row_class = ""
+
+        # Prøv at parse datoen – hvis den fejler, lader vi bare rækken være uden farve
+        try:
+            shift_date = date.fromisoformat(s["date"])
+            days_until = (shift_date - today).days
+        except Exception:
+            days_until = None
+
+        # 1) Grøn: behov dækket
+        if needed > 0 and approved >= needed:
+            row_class = "shift-covered"
+
+        # 2) Ikke dækket -> farve efter hvor tæt på vi er
+        elif days_until is not None and days_until >= 0 and approved < needed:
+            if days_until < 3:
+                row_class = "shift-critical"      # rød
+            elif days_until < 7:
+                row_class = "shift-warning-7"     # orange
+            elif days_until < 14:
+                row_class = "shift-warning-14"    # gul
+            else:
+                row_class = ""  # mere end 14 dage væk: ingen farve
+
+        s["row_class"] = row_class
+
+    return render_template(
+        "admin_dashboard.html",
+        active_shifts=active_shifts,
+        archived_shifts=archived_shifts,
+    )
+
+@app.get("/admin/actions")
+@admin_required
+def admin_actions():
+    # Hent pending counts (samme kilde som din context_processor)
+    pending = database.get_pending_admin_actions()
+
+    # Hent shifts på samme måde som dashboard gør
+    all_shifts = database.get_all_shifts_admin()
+    active_shifts = [s for s in all_shifts if s.get("is_active") == 1]
+    archived_shifts = [s for s in all_shifts if s.get("is_active") == 0]
+
+    # Actionable = alt med pending > 0
+    actionable = [s for s in (active_shifts + archived_shifts) if (s.get("pending") or 0) > 0]
+
+    # Sortér: flest pending først, derefter dato/tid (fallback-safe)
+    actionable.sort(
+        key=lambda x: (
+            x.get("pending", 0),
+            x.get("date", ""),
+            x.get("start_time", ""),
+        ),
+        reverse=True
+    )
+
+    return render_template(
+        "admin_actions.html",
+        actionable_shifts=actionable,
+        pending_total=pending["pending_total"],
+        pending_signups=pending["pending_signups"],
+        pending_releases=pending["pending_releases"],
+    )
+
+
+
+
+@app.get("/admin/shifts/<int:shift_id>/edit")
+@admin_required
+def admin_edit_shift_form(shift_id):
+    shift = database.get_shift(shift_id)
+    if not shift:
+        abort(404)
+
+    # Tilføj felt med dansk dato-streng til brug i templaten
+    shift["date_dk"] = format_danish_date(shift["date"])
+
+    return render_template("admin_edit_shift.html", shift=shift)
+
+
+@app.post("/admin/shifts/<int:shift_id>/edit")
+@admin_required
+def admin_edit_shift(shift_id):
+    raw_date = request.form.get("date", "").strip()
+    start_time = request.form.get("start_time", "").strip()
+    location = request.form.get("location", "").strip()
+    description = request.form.get("description", "").strip()
+    customer = request.form.get("customer", "").strip()
+    event_type = request.form.get("event_type", "").strip()
+    guest_count_raw = request.form.get("guest_count", "").strip()
+    required_staff_raw = request.form.get("required_staff", "").strip()
+
+    # Konverterer fx "11-12-2025" -> "2025-12-11"
+    date_iso = parse_danish_date(raw_date)
+
+    if not date_iso or not start_time or not location or not required_staff_raw:
+        flash("Dato, starttid, sted og antal medarbejdere skal udfyldes.")
+        return redirect(url_for("admin_edit_shift_form", shift_id=shift_id))
+
+    try:
+        required_staff = int(required_staff_raw)
+    except ValueError:
+        flash("Antal medarbejdere skal være et tal.")
+        return redirect(url_for("admin_edit_shift_form", shift_id=shift_id))
+
+    guest_count = None
+    if guest_count_raw:
+        try:
+            guest_count = int(guest_count_raw)
+        except ValueError:
+            guest_count = None
+
+    database.update_shift(
+        shift_id,
+        date_iso,
+        start_time,
+        location,
+        description,
+        required_staff,
+        customer or None,
+        event_type or None,
+        guest_count,
+    )
+
+    flash("Vagten er opdateret.")
+    # ⬇⬇ vigtig ændring: tilbage til selve vagtens admin-detaljeview
+    return redirect(url_for("admin_shift_detail", shift_id=shift_id))
+
+
+@app.route("/admin/shift/<int:shift_id>", methods=["GET"])
+@admin_required
+def admin_shift_detail(shift_id):
+    shift = database.get_shift(shift_id)
+    if shift is None:
+        abort(404)
+
+    # Tilføj dansk dato til brug i templaten
+    shift["date_dk"] = format_danish_date(shift["date"])
+
+    signups = database.get_signups_for_shift(shift_id)
+    persons = database.get_all_persons()  # til dropdown
+
+    return render_template(
+        "admin_shift.html",
+        shift=shift,
+        signups=signups,
+        persons=persons,
+    )
+
+
+@app.route("/admin/overblik")
+@admin_required
+def admin_overview():
+    # Hent alle vagter til admin
+    all_shifts = database.get_all_shifts_admin()
+    today_str = date.today().isoformat()
+
+    # Kun aktive vagter fra i dag og frem
+    upcoming_shifts = [
+        s for s in all_shifts
+        if s["is_active"] == 1 and s["date"] >= today_str
+    ]
+
+    overview = []
+    for shift in upcoming_shifts:
+        # Hent alle tilmeldinger til vagten
+        signups = database.get_signups_for_shift(shift["id"])
+        # Filtrér ned til dem der er godkendt
+        approved_signups = [
+            s for s in signups
+            if s["status"] == STATUS_APPROVED
+        ]
+        overview.append(
+            {
+                "shift": shift,
+                "approved_signups": approved_signups,
+            }
+        )
+
+    return render_template("admin_overview.html", overview=overview)
+
+@app.route("/admin/timer")
+@admin_required
+def admin_timer():
+    # Standard: nuværende måned
+    today = date.today()
+    default_year = today.year
+    default_month = today.month
+
+    year = request.args.get("year", type=int) or default_year
+    month = request.args.get("month", type=int) or default_month
+    show_paid = request.args.get("show_paid", "0") == "1"
+
+    # Hent alle timer for perioden
+    rows = database.get_hours_for_month(year, month, include_paid=show_paid, include_missing=True)
+
+    # Gruper pr. person til pænere UI og sum pr. person
+    people = {}
+    for r in rows:
+        key = (r["person_name"], r["phone"])
+        if key not in people:
+            people[key] = {
+                "name": r["person_name"],
+                "phone": r["phone"],
+                "rows": [],
+                "total_hours": 0.0,
+            }
+        people[key]["rows"].append(r)
+        people[key]["total_hours"] += r["work_hours"] or 0
+
+    people_list = list(people.values())
+    people_list.sort(key=lambda p: p["name"].lower())
+
+    # Samlet sum for måneden
+    total_hours = sum(p["total_hours"] for p in people_list)
+
+    # Brug samme "år-liste"-trick som på freelancer-siden
+    # (eller bare et simpelt interval omkring nu)
+    years = list(range(default_year - 2, default_year + 3))
+
+    return render_template(
+        "admin_timer.html",
+        year=year,
+        month=month,
+        years=years,
+        show_paid=show_paid,
+        people=people_list,
+        total_hours=total_hours,
+    )
+
+@app.get("/admin/historik")
+@admin_required
+def admin_history():
+    """
+    Viser alle historiske arrangementer (is_active = -1),
+    grupperet efter år og måned, med deltagere og registrerede timer.
+    """
+    historic_shifts = database.get_historic_shifts()
+
+    # Gruppér efter (år, måned)
+    groups = {}
+    for s in historic_shifts:
+        date_str = s["date"] or ""
+        try:
+            year = int(date_str[:4])
+            month = int(date_str[5:7])
+        except Exception:
+            year, month = 0, 0
+
+        key = (year, month)
+        if key not in groups:
+            groups[key] = {
+                "year": year,
+                "month": month,
+                "entries": [],  # liste af {shift, signups, total_hours}
+            }
+
+        signups = database.get_signups_for_shift_with_hours(s["id"])
+        total_hours = sum((su["work_hours"] or 0) for su in signups)
+
+        groups[key]["entries"].append(
+            {
+                "shift": s,
+                "signups": signups,
+                "total_hours": total_hours,
+            }
+        )
+
+    # Sorter måneder nyeste først
+    months = sorted(
+        groups.values(),
+        key=lambda g: (g["year"], g["month"]),
+        reverse=True,
+    )
+
+    # Indenfor hver måned: sorter vagter efter dato/tid (nyest øverst)
+    for g in months:
+        g["entries"].sort(
+            key=lambda e: (e["shift"]["date"], e["shift"]["time"]),
+            reverse=True,
+        )
+
+    return render_template("admin_history.html", months=months)
+
+@app.post("/admin/historik/revive/<int:shift_id>")
+@admin_required
+def admin_revive_shift(shift_id: int):
+    """Flyt et arrangement fra historik (-1) tilbage til arkiv (0)."""
+    database.revive_historic_shift(shift_id)
+    flash("Arrangement genåbnet (flyttet til arkiverede).")
+    return redirect(url_for("admin_history"))
+
+
+@app.post("/admin/historik/delete/<int:shift_id>")
+@admin_required
+def admin_delete_shift(shift_id: int):
+    """Slet et arrangement permanent (inkl. alle tilmeldinger)."""
+    database.delete_shift_permanently(shift_id)
+    flash("Arrangement slettet permanent.")
+    return redirect(url_for("admin_history"))
+
+
+@app.post("/admin/timer/mark-paid/<int:signup_id>")
+@admin_required
+def admin_timer_mark_paid(signup_id):
+    # Skal vi sætte eller rydde "afregnet"?
+    paid_flag = request.form.get("paid", "1") == "1"
+
+    # Bruges til at hoppe tilbage til samme måned/visning
+    year = request.form.get("year", type=int)
+    month = request.form.get("month", type=int)
+    show_paid = request.form.get("show_paid", "0")
+
+    # 🔐 KRITISK CHECK: timer skal være godkendt før afregning
+    signup = database.get_signup_by_id(signup_id)
+
+    if not signup:
+        flash("Kunne ikke finde tilmeldingen.")
+        return redirect(url_for("admin_timer", year=year, month=month, show_paid=show_paid))
+
+    if paid_flag and not signup.get("hours_approved_by_admin"):
+        flash("Timer skal godkendes før afregning.")
+        return redirect(url_for("admin_timer", year=year, month=month, show_paid=show_paid))
+
+    # OK → udfør afregning / fortryd
+    database.set_signup_payroll_status(signup_id, paid_flag)
+
+    flash(
+        "Timer markeret som afregnet."
+        if paid_flag
+        else "Afregning for denne vagt er nulstillet."
+    )
+
+    return redirect(url_for("admin_timer", year=year, month=month, show_paid=show_paid))
+
+
+
+
+
+@app.post("/admin/timer/approve/<int:signup_id>")
+@admin_required
+def admin_timer_approve(signup_id: int):
+    approved = request.form.get("approved_work_hours")
+
+    try:
+        approved = float(approved)
+        if approved < 0 or approved > 24:
+            raise ValueError()
+    except Exception:
+        flash("Ugyldigt antal timer.")
+        return redirect(request.referrer or url_for("admin_timer"))
+
+    database.approve_work_hours(signup_id, approved)
+    flash("Timer godkendt.")
+    return redirect(request.referrer or url_for("admin_timer"))
+
+
+
+# ============================
+# ADMIN ACTIONS (tilmeldinger)
+# ============================
+
+@app.post("/admin/signups/<int:signup_id>/approve")
+@admin_required
+def admin_approve_signup(signup_id):
+    """Godkend en tilmelding (REQUESTED -> APPROVED), men aldrig over kapacitet."""
+    signup = database.get_signup(signup_id)
+    if not signup:
+        abort(404)
+
+    # Find vagt og tjek hvor mange der allerede er godkendt
+    shift = database.get_shift(signup["shift_id"])
+    if not shift:
+        abort(404)
+
+    approved = shift["approved"]      # allerede godkendte
+    needed = shift["needed"]          # hvor mange der er brug for
+
+    if approved >= needed:
+        # Vagt er allerede fuld – vi ændrer ingenting, giver bare besked
+        flash("Vagten er allerede fyldt. Du kan ikke godkende flere på den.")
+        return redirect(url_for("admin_shift_detail", shift_id=signup["shift_id"]))
+
+    # Der er stadig plads – godkend tilmeldingen
+    database.set_signup_status(signup_id, STATUS_APPROVED)
+    flash("Tilmelding godkendt.")
+
+    return redirect(url_for("admin_shift_detail", shift_id=signup["shift_id"]))
+
+@app.post("/admin/shift/<int:shift_id>/add-signup")
+@admin_required
+def admin_add_signup(shift_id):
+    """Tilføj en eksisterende person til en vagt som tilmelding (REQUESTED)."""
+    person_id_raw = request.form.get("person_id", "").strip()
+    if not person_id_raw:
+        flash("Vælg en person for at tilføje til vagten.")
+        return redirect(url_for("admin_shift_detail", shift_id=shift_id))
+
+    try:
+        person_id = int(person_id_raw)
+    except ValueError:
+        flash("Ugyldigt valg af person.")
+        return redirect(url_for("admin_shift_detail", shift_id=shift_id))
+
+    person = database.get_person(person_id)
+    if not person:
+        flash("Personen findes ikke længere.")
+        return redirect(url_for("admin_shift_detail", shift_id=shift_id))
+
+    # Opret tilmelding – create_signup bruger selv get_or_create_person,
+    # men vi sender name + phone for at ramme den rigtige.
+    signup_id = database.create_signup(
+        shift_id=shift_id,
+        name=person["name"],
+        phone=person["phone"],
+        initial_status=STATUS_REQUESTED,
+        available_from=None,
+    )
+
+    if signup_id is None:
+        flash("Personen er allerede tilmeldt denne vagt.")
+    else:
+        flash(f"{person['name']} er nu tilmeldt vagten (afventer godkendelse).")
+
+    return redirect(url_for("admin_shift_detail", shift_id=shift_id))
+
+
+@app.post("/admin/shifts/new")
+@admin_required
+def admin_create_shift():
+    raw_date = request.form.get("date", "").strip()
+    start_time = request.form.get("start_time", "").strip()
+    location = request.form.get("location", "").strip()
+    description = request.form.get("description", "").strip()
+    customer = request.form.get("customer", "").strip()
+    event_type = request.form.get("event_type", "").strip()
+    guest_count_raw = request.form.get("guest_count", "").strip()
+    required_staff_raw = request.form.get("required_staff", "").strip()
+
+    # Konverter dato til ISO
+    date_iso = parse_danish_date(raw_date)
+
+    if not date_iso or not start_time or not location or not required_staff_raw:
+        flash("Dato, starttid, sted og antal medarbejdere skal udfyldes.")
+        return redirect(url_for("admin_dashboard"))
+
+    try:
+        required_staff = int(required_staff_raw)
+    except ValueError:
+        flash("Antal medarbejdere skal være et tal.")
+        return redirect(url_for("admin_dashboard"))
+
+    guest_count = None
+    if guest_count_raw:
+        try:
+            guest_count = int(guest_count_raw)
+        except ValueError:
+            guest_count = None  # bare dropper det, hvis det er noget skørt
+
+    # Forudsætter at database.create_shift er udvidet til også at tage de nye felter
+    database.create_shift(
+        date_iso,
+        start_time,
+        location,
+        description,
+        required_staff,
+        customer or None,
+        event_type or None,
+        guest_count,
+    )
+
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.post("/admin/signups/<int:signup_id>/reject")
+@admin_required
+def admin_reject_signup(signup_id):
+    """Afvis/fjern en tilmelding helt – så personen kan melde sig til igen senere."""
+    signup = database.get_signup(signup_id)
+    if not signup:
+        abort(404)
+
+    # Slet tilmeldingen helt
+    database.delete_signup(signup_id)
+
+    return redirect(url_for("admin_shift_detail", shift_id=signup["shift_id"]))
+
+
+@app.post("/admin/signups/<int:signup_id>/release-approve")
+@admin_required
+def admin_release_approve(signup_id):
+    """
+    Godkend afbud: personen fjernes helt fra vagten.
+    Efterfølgende kan de melde sig til igen, hvis der stadig er brug for folk.
+    """
+    signup = database.get_signup(signup_id)
+    if not signup:
+        abort(404)
+
+    # Slet tilmeldingen helt
+    database.delete_signup(signup_id)
+
+    return redirect(url_for("admin_shift_detail", shift_id=signup["shift_id"]))
+
+
+
+@app.post("/admin/signups/<int:signup_id>/release-deny")
+@admin_required
+def admin_release_deny(signup_id):
+    """
+    Afvis afbud (RELEASE_REQUESTED -> APPROVED).
+    Personen forbliver på vagten.
+    """
+    database.set_signup_status(signup_id, STATUS_APPROVED)
+    signup = database.get_signup(signup_id)
+    if not signup:
+        abort(404)
+    return redirect(url_for("admin_shift_detail", shift_id=signup["shift_id"]))
+
+@app.post("/admin/shifts/<int:shift_id>/set-active")
+@admin_required
+def admin_set_shift_active(shift_id):
+    # is_active kan være "1" (aktiv), "0" (arkiv) eller "-1" (historik/sink)
+    state_raw = request.form.get("is_active", "1").strip()
+
+    if state_raw not in {"1", "0", "-1"}:
+        state_raw = "1"  # defensiv default
+
+    state = int(state_raw)
+    database.set_shift_state(shift_id, state)
+
+    return redirect(url_for("admin_dashboard"))
+
+
+
+@app.post("/admin/shifts/sink-archived")
+@admin_required
+def admin_sink_all_archived():
+    database.sink_all_archived_shifts()
+    flash("Alle arkiverede arrangementer er flyttet til historikken.")
+    return redirect(url_for("admin_dashboard"))
+
+
+
+@app.post("/admin/signups/<int:signup_id>/meet-time")
+@admin_required
+def admin_set_meet_time(signup_id):
+    """
+    Sæt / opdater mødetid for en tilmelding.
+    Tomt felt = nulstil mødetid.
+    """
+    meet_time = request.form.get("meet_time", "").strip()
+    if not meet_time:
+        meet_time = None
+
+    database.set_signup_meet_time(signup_id, meet_time)
+
+    signup = database.get_signup(signup_id)
+    if not signup:
+        abort(404)
+    return redirect(url_for("admin_shift_detail", shift_id=signup["shift_id"]))
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
+

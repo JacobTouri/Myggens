@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Admin – Indbakke{% endblock %}
+
+{% block extra_head %}
+<style>
+  .table-wrap{
+    overflow:auto;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(0,0,0,0.15);
+  }
+  table{ width:100%; border-collapse:collapse; min-width: 980px; }
+  th, td{ padding: 10px 10px; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 14px; }
+  th{
+    position: sticky; top: 0; z-index: 1;
+    background: rgba(20,20,20,0.95);
+    color: var(--text-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  tr:hover td{ background: rgba(255,255,255,0.03); }
+
+  .cell-center{ text-align:center; }
+
+  .pill{
+    display:inline-flex; align-items:center; gap:8px;
+    padding: 4px 10px; border-radius: 999px; font-size: 12px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    white-space: nowrap;
+  }
+  .pill.ok { border-color: rgba(48,199,135,0.35); background: rgba(48,199,135,0.10); }
+  .pill.warn { border-color: rgba(255,213,105,0.35); background: rgba(255,213,105,0.10); }
+  .pill.bad { border-color: rgba(255,75,75,0.35); background: rgba(255,75,75,0.10); }
+
+  .btn-small { padding: 7px 12px; font-size: 13px; }
+
+  .toolbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <div class="toolbar">
+    <div>
+      <h1 style="margin:0;">Indbakke – åbne handlinger</h1>
+      <div class="card-subtitle">
+        Godkend/afvis tilmeldinger og ønskede fridage – ét sted.
+      </div>
+    </div>
+
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <a class="btn btn-secondary" href="{{ url_for('admin_dashboard') }}">Tilbage til dashboard</a>
+      <a class="btn btn-secondary" href="{{ url_for('admin_overview') }}">Bemanding</a>
+    </div>
+  </div>
+
+  {% if pending_total|default(0) > 0 %}
+    <div class="flash flash-info" style="margin-top:12px;">
+      <strong>{{ pending_total }}</strong> handlinger:
+      {{ pending_signups|default(0) }} nye tilmeldinger · {{ pending_releases|default(0) }} ønskede fridage
+    </div>
+  {% else %}
+    <div class="flash flash-success" style="margin-top:12px;">
+      <strong>Ingen åbne handlinger.</strong>
+    </div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="toolbar">
+    <div>
+      <h2 style="margin:0;">Vagter der kræver action</h2>
+      <div class="card-subtitle">Tip: søg i kunde/sted/dato/type.</div>
+    </div>
+    <div style="min-width:260px;">
+      <input id="actionFilter" type="text" placeholder="Søg i indbakke…">
+    </div>
+  </div>
+
+  {% if not actionable_shifts %}
+    <p style="margin-top:10px;">Der er ingen vagter med afventende handlinger.</p>
+  {% else %}
+    <div class="table-wrap" style="margin-top:12px;">
+      <table id="actionTable">
+        <thead>
+          <tr>
+            <th>Dato</th>
+            <th>Start</th>
+            <th>Hvor</th>
+            <th>Hvem</th>
+            <th>Hvad</th>
+            <th class="cell-center">Nye</th>
+            <th class="cell-center">Fri</th>
+            <th class="cell-center">I alt</th>
+            <th>Handling</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in actionable_shifts %}
+            <tr>
+              <td>{{ s.date|dkdate }}</td>
+              <td>{{ s.time }}</td>
+              <td>{{ s.location }}</td>
+              <td>{{ s.customer or "-" }}</td>
+              <td>{{ s.event_type or "-" }}</td>
+
+              <td class="cell-center">
+                {% if s.pending_signups and s.pending_signups > 0 %}
+                  <span class="pill warn">{{ s.pending_signups }}</span>
+                {% else %}
+                  <span class="pill ok">0</span>
+                {% endif %}
+              </td>
+
+              <td class="cell-center">
+                {% if s.pending_releases and s.pending_releases > 0 %}
+                  <span class="pill warn">{{ s.pending_releases }}</span>
+                {% else %}
+                  <span class="pill ok">0</span>
+                {% endif %}
+              </td>
+
+              <td class="cell-center">
+                <span class="pill warn">{{ s.pending }}</span>
+              </td>
+
+              <td>
+                <a class="btn btn-primary btn-small" href="{{ url_for('admin_shift_detail', shift_id=s.id) }}">
+                  Gennemgå
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+(function(){
+  const input = document.getElementById("actionFilter");
+  const table = document.getElementById("actionTable");
+  if (!input || !table) return;
+
+  const rows = Array.from(table.querySelectorAll("tbody tr"));
+  input.addEventListener("input", () => {
+    const q = input.value.toLowerCase().trim();
+    rows.forEach(r => {
+      const txt = r.innerText.toLowerCase();
+      r.style.display = txt.includes(q) ? "" : "none";
+    });
+  });
+})();
+</script>
+
+{% endblock %}

@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+
+{% block title %}Mine vagter – Myggen's{% endblock %}
+
+{% block content %}
+
+<div class="layout-two-column">
+    <!-- Venstre kolonne: indhold -->
+    <section class="card card-soft">
+        <div class="card-header">
+            <h1 style="margin:0;">Mine vagter</h1>
+            <div class="card-subtitle">Overblik </div>
+        </div>
+
+        <!-- Søg / vis mine vagter -->
+        <div class="card" style="margin-top: 10px;">
+            <h2 style="margin: 0 0 8px 0;">Find dine vagter</h2>
+            <p style="margin: 0 0 10px 0;">
+                Indtast telefonnummer for at hente dine vagter.
+            </p>
+
+            <form method="post" style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+                <div style="flex: 1; min-width: 220px;">
+                    <label for="phone">Telefonnummer</label>
+                    <input type="text" id="phone" name="phone" value="{{ phone }}" required />
+                </div>
+                <button type="submit" class="btn btn-primary">Vis mine vagter</button>
+            </form>
+        </div>
+
+        <!-- Påmindelse -->
+        {% if unlogged_signups %}
+            <div class="card" style="margin-top: 12px; border-color: rgba(255, 122, 26, 0.45); background: rgba(255, 122, 26, 0.10);">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                    <div>
+                        <strong>Husk at registrere dine timer ⏰</strong><br>
+                        <span class="helper-text" style="color: rgba(255,255,255,0.85);">
+                            Du har {{ unlogged_signups|length }} vagt(er), hvor der mangler arbejdstid.
+                        </span>
+                    </div>
+                    <span class="tag-pill">{{ unlogged_signups|length }} mangler</span>
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Kommende vagter -->
+        <div style="margin-top: 14px;">
+            <h2 style="margin-bottom: 8px;">Kommende vagter</h2>
+
+            {% if upcoming_signups %}
+                {% for item in upcoming_signups %}
+                    {% set shift = item.shift %}
+
+                    <div class="card" style="margin-top: 10px;">
+                        <!-- Header row -->
+                        <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                            <div>
+                                <div style="font-weight:600; font-size:16px;">
+                                    {{ shift.date|dkdate }}
+                                </div>
+                                <div class="helper-text">
+                                    Kl. {{ shift.time }} – {{ shift.location }}
+                                </div>
+                                {% if shift.description %}
+                                    <div style="margin-top:6px; color: var(--text-main);">
+                                        {{ shift.description }}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <div style="display:flex; gap:6px; align-items:flex-start; flex-wrap:wrap; justify-content:flex-end;">
+                                {% if item.status == "REQUESTED" %}
+                                    <span class="tag-pill">Afventer 🕒</span>
+                                {% elif item.status == "APPROVED" %}
+                                    <span class="tag-pill" style="border-color: rgba(58,203,106,0.6); background: rgba(58,203,106,0.12); color: #9ff2b7;">
+                                        Godkendt ✅
+                                    </span>
+                                {% elif item.status == "RELEASE_REQUESTED" %}
+                                    <span class="tag-pill" style="border-color: rgba(255,213,105,0.7); background: rgba(255,213,105,0.12); color: #ffe6a6;">
+                                        Fri ønsket 🙏
+                                    </span>
+                                {% else %}
+                                    <span class="tag-pill">{{ item.status }}</span>
+                                {% endif %}
+
+                                {% if item.meet_time %}
+                                    <span class="tag-pill">Møde {{ item.meet_time }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Availability -->
+                        <div style="margin-top: 10px;">
+                            {% if item.available_from %}
+                                <div class="helper-text">Angivet: kan først fra kl. <strong style="color: var(--text-main);">{{ item.available_from }}</strong></div>
+                            {% else %}
+                                <div class="helper-text">Angivet: <strong style="color: var(--text-main);">kan hele dagen</strong></div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Meet time info (approved) -->
+                        {% if item.status == "APPROVED" %}
+                            <div style="margin-top: 10px;">
+                                {% if item.meet_time %}
+                                    <div class="card" style="padding: 10px 12px; background: rgba(58,203,106,0.08); border-color: rgba(58,203,106,0.35);">
+                                        <strong>Du skal møde kl. {{ item.meet_time }}.</strong>
+                                    </div>
+                                {% else %}
+                                    <div class="card" style="padding: 10px 12px; background: rgba(255,213,105,0.08); border-color: rgba(255,213,105,0.35);">
+                                        <strong>Mødetidspunkt er ikke sat endnu.</strong>
+                                        <div class="helper-text">Hold øje her – eller kontakt Martin.</div>
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Actions row -->
+                            <div style="margin-top: 10px; display:flex; gap:8px; flex-wrap:wrap;">
+                                <form method="post" action="/anmod-fri/{{ item.signup_id }}" style="margin:0;">
+                                    <button type="submit" class="btn btn-danger">Anmod om fri</button>
+                                </form>
+                            </div>
+
+                            <!-- Log hours (kun hvis i dag og ingen timer endnu) -->
+                            {% set today = now().strftime("%Y-%m-%d") %}
+                            {% if shift.date == today and not item.work_hours %}
+                                <details style="margin-top: 12px;">
+                                    <summary style="cursor:pointer; font-weight:600;">
+                                        Registrer arbejdstid
+                                        <span class="helper-text" style="display:inline; margin-left:6px;">
+                                            (kun synlig på dagen)
+                                        </span>
+                                    </summary>
+
+                                    <div class="card" style="margin-top:10px; background: rgba(255,255,255,0.02);">
+                                        <form method="post"
+                                              action="{{ url_for('freelancer_log_hours', signup_id=item.signup_id) }}"
+                                              style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+
+                                            <div style="min-width: 160px; flex: 1;">
+                                                <label for="work_start_live_{{ item.signup_id }}">Starttid</label>
+                                                <input type="time" id="work_start_live_{{ item.signup_id }}"
+                                                       name="work_start" required>
+                                            </div>
+
+                                            <div style="min-width: 160px; flex: 1;">
+                                                <label for="work_end_live_{{ item.signup_id }}">Sluttid</label>
+                                                <input type="time" id="work_end_live_{{ item.signup_id }}"
+                                                       name="work_end" required>
+                                            </div>
+
+                                            <button type="submit" class="btn btn-primary">Gem timer</button>
+                                        </form>
+                                    </div>
+                                </details>
+                            {% endif %}
+
+                        {% elif item.status == "RELEASE_REQUESTED" %}
+                            <div style="margin-top: 10px;" class="helper-text">
+                                Du er stadig på vagten, indtil Martin godkender afbuddet.
+                            </div>
+                        {% endif %}
+
+                        <!-- Coworkers -->
+                        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.15);">
+                            <strong>Andre på denne vagt</strong>
+                            <div class="helper-text" style="margin-top: 6px;">
+                                {% if item.coworkers %}
+                                    <ul style="margin: 6px 0 0 18px; padding: 0;">
+                                        {% for c in item.coworkers %}
+                                            <li style="margin-bottom: 4px;">
+                                                {{ c.name }}
+                                                {% if c.phone %} – {{ c.phone }}{% endif %}
+                                                {% if c.meet_time %}
+                                                    <span class="helper-text" style="margin-left:6px;">(møder kl. {{ c.meet_time }})</span>
+                                                {% endif %}
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                {% else %}
+                                    Ingen andre er godkendt på denne vagt endnu.
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                {% endfor %}
+            {% else %}
+                <div class="card" style="margin-top:10px;">
+                    <div class="helper-text">Ingen kommende vagter fundet.</div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Mangler timer (tidligere) -->
+        {% if unlogged_signups %}
+            <div style="margin-top: 18px;">
+                <h2 style="margin-bottom: 6px;">Vagter der mangler timer</h2>
+                <p style="margin-top:0;">Skriv arbejdstid for at færdiggøre dem.</p>
+
+                {% for item in unlogged_signups %}
+                    {% set shift = item.shift %}
+
+                    <div class="card" style="margin-top: 10px; border-color: rgba(255, 213, 105, 0.35); background: rgba(255, 213, 105, 0.08);">
+                        <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                            <div>
+                                <div style="font-weight:600;">
+                                    {{ shift.date|dkdate }}
+                                </div>
+                                <div class="helper-text">
+                                    Kl. {{ shift.time }} – {{ shift.location }}
+                                </div>
+                                {% if shift.description %}
+                                    <div style="margin-top:6px; color: var(--text-main);">
+                                        {{ shift.description }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <span class="tag-pill" style="
+                                border-color: rgba(255,213,105,0.7);
+                                background: rgba(255,213,105,0.12);
+                                color:#ffe6a6;
+                                flex: 0 0 auto;
+                                width: fit-content;
+                                align-self: flex-start;
+                                white-space: nowrap;
+                            ">
+                                Timer mangler
+                            </span>
+
+                        </div>
+
+                        <form method="post"
+                              action="{{ url_for('freelancer_log_hours', signup_id=item.signup_id) }}"
+                              style="margin-top: 10px; display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+
+                            <div style="min-width: 160px; flex: 1;">
+                                <label for="work_start_{{ item.signup_id }}">Starttid</label>
+                                <input type="time" id="work_start_{{ item.signup_id }}" name="work_start" required>
+                            </div>
+
+                            <div style="min-width: 160px; flex: 1;">
+                                <label for="work_end_{{ item.signup_id }}">Sluttid</label>
+                                <input type="time" id="work_end_{{ item.signup_id }}" name="work_end" required>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">Gem timer</button>
+                        </form>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.08);">
+
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+            <a href="{{ url_for('mine_vagter_historik') }}" class="btn btn-secondary">
+                Se tidligere vagter og månedligt timeoverblik
+            </a>
+        </div>
+    </section>
+
+    <!-- Højre kolonne: hjælpekort -->
+    <aside class="hero-panel">
+        <div class="hero-bg-rotator"></div>
+        <div class="hero-panel-inner">
+            <div>
+                <div class="hero-heading">Sådan bruger du Mine vagter</div>
+                <p class="hero-text">
+                    Hold overblik over kommende vagter, mødetid og status.<br>
+                    På dagen kan arbejdstid registreres direkte her.<br>
+                    Mangler timer fra tidligere vagter? Udfyld dem nederst.
+                </p>
+            </div>
+            </div>
+        </div>
+    </aside>
+</div>
+
+{% endblock %}

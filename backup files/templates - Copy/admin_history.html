@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}Arrangements-historik – Myggen's{% endblock %}
+{% block body_class %}admin-wide{% endblock %}
+
+{% block extra_head %}
+<style>
+  .page-top{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .page-title{ margin:0; }
+  .subtitle{ color:var(--text-muted); margin-top:4px; }
+
+  .month-title{
+    margin: 18px 0 8px;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .pill{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:4px 10px;
+    border-radius:999px;
+    font-size:12px;
+    border:1px solid rgba(255,255,255,0.12);
+    background:rgba(255,255,255,0.04);
+    white-space:nowrap;
+  }
+  .pill.ok   { border-color:rgba(48,199,135,0.35); background:rgba(48,199,135,0.10); }
+  .pill.warn { border-color:rgba(255,213,105,0.35); background:rgba(255,213,105,0.10); }
+  .pill.bad  { border-color:rgba(255,75,75,0.35); background:rgba(255,75,75,0.10); }
+
+  .btn-row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .btn-small{ padding:7px 12px; font-size:13px; }
+
+  .event-header{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+
+  .event-title{
+    margin:0;
+    font-size:16px;
+    font-weight:700;
+  }
+
+  .event-meta{
+    margin-top:6px;
+    color:var(--text-muted);
+    font-size:13px;
+  }
+
+  .table-wrap{
+    overflow:auto;
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,0.10);
+    background:rgba(0,0,0,0.15);
+    margin-top:12px;
+  }
+
+  table{
+    width:100%;
+    border-collapse:collapse;
+    min-width:0;
+    table-layout:auto;
+  }
+  th, td{
+    padding:10px;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+    font-size:14px;
+    white-space:normal;
+    word-break:break-word;
+    vertical-align:top;
+  }
+  th{
+    position:sticky;
+    top:0;
+    z-index:1;
+    background:rgba(25,25,25,0.95);
+    color:var(--text-muted);
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+  }
+  tr:hover td{ background:rgba(255,255,255,0.03); }
+
+  .nowrap{ white-space:nowrap; }
+  .cell-right{ text-align:right; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- TOP CARD -->
+<div class="card">
+  <div class="page-top">
+    <div>
+      <h1 class="page-title">Arrangementshistorik</h1>
+      <div class="subtitle">Afsluttede Arrangementer </div>
+    </div>
+
+    <div class="btn-row">
+      <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">← Tilbage</a>
+      <a href="{{ url_for('admin_overview') }}" class="btn btn-secondary">Bemanding</a>
+    </div>
+  </div>
+</div>
+
+{% if not months %}
+  <div class="card">
+    <div class="card-header">
+      <h2 style="margin:0;">Ingen historik endnu</h2>
+    </div>
+    <p class="helper-text">Arkiverede arrangementer dukker op her.</p>
+  </div>
+{% else %}
+
+  {% for group in months %}
+    <div class="month-title">{{ "%02d"|format(group.month) }}-{{ group.year }}</div>
+
+    {% for entry in group.entries %}
+      {% set s = entry.shift %}
+
+      <div class="card">
+        <div class="event-header">
+          <div>
+            <h3 class="event-title">
+              {{ s.date|dkdate }} · {{ s.time }} · {{ s.location }}
+            </h3>
+
+            <div class="event-meta">
+              {% if s.customer %}<strong>Hvem:</strong> {{ s.customer }} · {% endif %}
+              {% if s.event_type %}<strong>Hvad:</strong> {{ s.event_type }} · {% endif %}
+              {% if s.guest_count %}<strong>Gæster:</strong> {{ s.guest_count }}{% endif %}
+            </div>
+
+            {% if s.description %}
+              <div class="event-meta">{{ s.description }}</div>
+            {% endif %}
+          </div>
+
+          <div class="btn-row">
+            <span class="pill">Behov: {{ s.needed }}</span>
+            <span class="pill {% if s.approved > 0 %}ok{% else %}warn{% endif %}">
+              Godkendte: {{ s.approved }}
+            </span>
+          </div>
+        </div>
+
+        <!-- ACTIONS -->
+        <div class="btn-row" style="margin-top:12px;">
+          <form method="post"
+                action="{{ url_for('admin_revive_shift', shift_id=s.id) }}"
+                onsubmit="return confirm('Er du sikker på, at du vil genåbne dette arrangement?');"
+                style="margin:0;">
+            <button type="submit" class="btn btn-secondary btn-small">
+              ♻️ Genåbn arrangement
+            </button>
+          </form>
+
+          <form method="post"
+                action="{{ url_for('admin_delete_shift', shift_id=s.id) }}"
+                onsubmit="return confirm('ADVARSEL: Dette sletter arrangementet permanent. Er du helt sikker?');"
+                style="margin:0;">
+            <button type="submit" class="btn btn-danger btn-small">
+              🗑️ Slet permanent
+            </button>
+          </form>
+        </div>
+
+        <!-- SIGNUPS -->
+        {% if not entry.signups %}
+          <p class="helper-text" style="margin-top:12px;">
+            Ingen tilmeldinger registreret på denne vagt.
+          </p>
+        {% else %}
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Navn</th>
+                  <th class="nowrap">Telefon</th>
+                  <th class="nowrap">Start</th>
+                  <th class="nowrap">Slut</th>
+                  <th class="cell-right nowrap">Timer</th>
+                  <th>Afregning</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for su in entry.signups %}
+                  <tr>
+                    <td><strong>{{ su.name }}</strong></td>
+                    <td class="nowrap">{{ su.phone }}</td>
+                    <td class="nowrap">{{ su.work_start or "-" }}</td>
+                    <td class="nowrap">{{ su.work_end or "-" }}</td>
+                    <td class="cell-right nowrap">
+                      {{ "%.2f"|format(su.work_hours or 0) }}
+                    </td>
+                    <td>
+                      {% if su.payroll_paid %}
+                        <span class="pill ok">Afregnet</span>
+                        <div class="helper-text">{{ su.payroll_paid_at }}</div>
+                      {% else %}
+                        <span class="pill warn">Ikke afregnet</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+                <tr>
+                  <td colspan="4" class="cell-right"><strong>I alt:</strong></td>
+                  <td class="cell-right nowrap">
+                    <strong>{{ "%.2f"|format(entry.total_hours) }}</strong>
+                  </td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% endfor %}
+
+{% endif %}
+
+{% endblock %}

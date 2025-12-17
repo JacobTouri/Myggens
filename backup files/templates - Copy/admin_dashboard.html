@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+
+{% block title %}Admin – Myggen's vagter{% endblock %}
+
+{% block body_class %}admin-wide{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Farvelogik (row_class fra app.py) */
+    .shift-covered { background-color: rgba(58,203,106,0.12); }
+    .shift-warning-14 { background-color: rgba(255,213,105,0.14); }
+    .shift-warning-7 { background-color: rgba(255,122,26,0.14); }
+    .shift-warning-3 { background-color: rgba(255,75,75,0.14); }
+
+    .kpi-number { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+    .kpi-row { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+    .kpi-sub { font-size: 13px; color: var(--text-muted); margin-top: 6px; }
+    .kpi-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top: 10px; }
+
+    .table-wrap { overflow:auto; border-radius: 14px; border: 1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.15); }
+
+    /* ✅ VIGTIGT: stop “børnetabeller” */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 0;              /* ikke tving 980px+ */
+        table-layout: auto;        /* lad browseren fordele plads */
+    }
+    th, td {
+        padding: 10px 10px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        font-size: 14px;
+        white-space: normal;       /* ✅ wrap tekst i stedet for horisontal scroll */
+        word-break: break-word;
+    }
+    th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: rgba(25,25,25,0.95);
+        color: var(--text-muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+    tr:hover td { background: rgba(255,255,255,0.03); }
+
+    .cell-center { text-align:center; }
+
+    /* Kolonner der bør være “stramme” (dato/tid/tal) */
+    .nowrap { white-space: nowrap; }
+
+    .pill{
+        display:inline-flex; align-items:center; gap:8px;
+        padding: 4px 10px; border-radius: 999px; font-size: 12px;
+        border: 1px solid rgba(255,255,255,0.12);
+        background: rgba(255,255,255,0.04);
+        white-space: nowrap;
+    }
+    .pill.ok { border-color: rgba(48,199,135,0.35); background: rgba(48,199,135,0.10); }
+    .pill.warn { border-color: rgba(255,213,105,0.35); background: rgba(255,213,105,0.10); }
+    .pill.bad { border-color: rgba(255,75,75,0.35); background: rgba(255,75,75,0.10); }
+
+    .btn-small { padding: 7px 12px; font-size: 13px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{% set pending_total_safe = pending_total|default(0) %}
+{% set pending_signups_safe = pending_signups|default(0) %}
+{% set pending_releases_safe = pending_releases|default(0) %}
+
+{# Saml alle shifts vi har på dashboardet #}
+{% set all_dash_shifts = (active_shifts|list) + (archived_shifts|list) %}
+{% set action_shifts = [] %}
+{% for s in all_dash_shifts %}
+  {% if s.pending and s.pending > 0 %}
+    {% set _ = action_shifts.append(s) %}
+  {% endif %}
+{% endfor %}
+
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h1 style="margin:0;">Admin – vagtoversigt</h1>
+            <div class="card-subtitle">Overblik, handlinger og kommende vagter</div>
+        </div>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+            <a href="{{ url_for('admin_overview') }}" class="btn btn-secondary">Bemanding</a>
+            <a href="{{ url_for('admin_person_list') }}" class="btn btn-secondary">Personale</a>
+            <a href="{{ url_for('admin_timer') }}" class="btn btn-secondary">Timer / løn</a>
+        </div>
+    </div>
+
+    {% if pending_total_safe > 0 %}
+        <div class="flash flash-info" style="margin: 0;">
+            <strong>Der er åbne handlinger:</strong>
+            {{ pending_signups_safe }} nye tilmeldinger · {{ pending_releases_safe }} ønskede fridage
+            <span style="margin-left:10px;">
+              <a href="{{ url_for('admin_actions') }}" class="btn btn-primary btn-small" style="margin-left:6px;">Gennemgå nu</a>
+            </span>
+        </div>
+    {% else %}
+        <div class="flash flash-success" style="margin: 0;">
+            <strong>Ingen åbne handlinger lige nu.</strong>
+        </div>
+    {% endif %}
+</div>
+
+<div class="layout-two-column">
+
+    <!-- Status -->
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h2 style="margin:0;">Status</h2>
+                <div class="card-subtitle">Hurtigt overblik over “hvad brænder?”</div>
+            </div>
+        </div>
+
+        <div class="kpi-row">
+            <div>
+                <div class="kpi-number">{{ pending_total_safe }}</div>
+                <div class="kpi-sub">Åbne handlinger</div>
+            </div>
+            <div>
+                {% if pending_total_safe > 0 %}
+                    <span class="pill warn">Kræver aktion</span>
+                {% else %}
+                    <span class="pill ok">Ajour</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="kpi-actions">
+            {% if pending_total_safe > 0 %}
+              <a class="btn btn-primary btn-small" href="{{ url_for('admin_actions') }}">Åbn indbakke</a>
+            {% endif %}
+            <a class="btn btn-secondary btn-small" href="{{ url_for('admin_overview') }}">Se bemanding</a>
+            <a class="btn btn-secondary btn-small" href="{{ url_for('admin_history') }}">Historik</a>
+        </div>
+
+        <hr style="border:none; border-top:1px solid rgba(255,255,255,0.10); margin:14px 0;">
+
+        <div class="kpi-row">
+            <div>
+                <div class="kpi-number">{{ active_shifts|length }}</div>
+                <div class="kpi-sub">Aktive vagter</div>
+            </div>
+            <div>
+                <span class="pill">{{ active_shifts|length }} i gang</span>
+            </div>
+        </div>
+
+        <div class="kpi-row" style="margin-top:10px;">
+            <div>
+                <div class="kpi-number">{{ archived_shifts|length }}</div>
+                <div class="kpi-sub">Arkiverede vagter</div>
+            </div>
+            <div>
+                {% if archived_shifts|length > 0 %}
+                    <span class="pill warn">Klar til historik</span>
+                {% else %}
+                    <span class="pill ok">Ingen i kø</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Opret ny vagt -->
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h2 style="margin:0;">Opret ny vagt</h2>
+                <div class="card-subtitle"></div>
+            </div>
+        </div>
+
+        <form method="post" action="{{ url_for('admin_create_shift') }}">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label>Dato (DD-MM-YYYY)</label>
+                    <input type="text" name="date" placeholder="21-11-2025" required>
+                </div>
+                <div>
+                    <label>Starttid (HH:MM)</label>
+                    <input type="text" name="start_time" placeholder="17:00" required>
+                </div>
+            </div>
+
+            <div style="margin-top:10px;">
+                <label>Sted</label>
+                <input type="text" name="location" placeholder="Munken" required>
+            </div>
+
+            <div style="margin-top:10px;">
+                <label>Beskrivelse</label>
+                <input type="text" name="description" placeholder="Teambuilding – 50 pers.">
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top:10px;">
+                <div>
+                    <label>Hvem (kunde)</label>
+                    <input type="text" name="customer" placeholder="Firma / navn">
+                </div>
+                <div>
+                    <label>Hvad (type)</label>
+                    <input type="text" name="event_type" placeholder="Julefrokost / pizza / …">
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top:10px;">
+                <div>
+                    <label>Antal gæster</label>
+                    <input type="number" name="guest_count" min="0" placeholder="80">
+                </div>
+                <div>
+                    <label>Antal medarbejdere</label>
+                    <input type="number" name="required_staff" min="1" value="3" required>
+                </div>
+            </div>
+
+            <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+                <button class="btn btn-primary" type="submit">Opret vagt</button>
+                <a class="btn btn-ghost" href="{{ url_for('admin_overview') }}">Se bemanding</a>
+            </div>
+        </form>
+    </div>
+
+</div>
+
+<!-- Aktive vagter -->
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h2 style="margin:0;">Aktive vagter</h2>
+            <div class="card-subtitle"></div>
+        </div>
+
+        <div style="min-width: 260px;">
+            <input id="shiftFilter" type="text" placeholder="Søg i aktive vagter…">
+        </div>
+    </div>
+
+    {% if not active_shifts %}
+        <p>Ingen aktive vagter.</p>
+    {% else %}
+        <div class="table-wrap">
+            <table id="activeTable">
+                <thead>
+                    <tr>
+                        <th class="nowrap">Dato</th>
+                        <th class="nowrap">Start</th>
+                        <th>Hvem</th>
+                        <th>Hvad</th>
+                        <th>Hvor</th>
+                        <th class="cell-center nowrap">Gæster</th>
+                        <th class="cell-center nowrap">Behov</th>
+                        <th class="cell-center nowrap">Godkendte</th>
+                        <th class="cell-center nowrap">Afventer</th>
+                        <th class="nowrap">Handling</th>
+                        <th class="cell-center nowrap">Arkiv</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in active_shifts %}
+                        <tr class="{{ s.row_class }}">
+                            <td class="nowrap">{{ s.date|dkdate }}</td>
+                            <td class="nowrap">{{ s.time }}</td>
+                            <td>{{ s.customer or "-" }}</td>
+                            <td>{{ s.event_type or "-" }}</td>
+                            <td>{{ s.location }}</td>
+                            <td class="cell-center nowrap">{{ s.guest_count or "-" }}</td>
+                            <td class="cell-center nowrap">{{ s.needed }}</td>
+                            <td class="cell-center nowrap">{{ s.approved }}</td>
+                            <td class="cell-center nowrap">
+                                {% if s.pending and s.pending > 0 %}
+                                    <span class="pill warn">{{ s.pending }}</span>
+                                {% else %}
+                                    <span class="pill ok">0</span>
+                                {% endif %}
+                            </td>
+                            <td class="nowrap">
+                                <a class="btn btn-primary btn-small" href="{{ url_for('admin_shift_detail', shift_id=s.id) }}">Åbn</a>
+                            </td>
+                            <td class="cell-center nowrap">
+                                <form method="post" action="{{ url_for('admin_set_shift_active', shift_id=s.id) }}" style="margin:0;">
+                                    <input type="hidden" name="is_active" value="0">
+                                    <button class="btn btn-secondary btn-small" type="submit">Arkivér</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Arkiverede -->
+<div class="card">
+    <div class="card-header">
+        <div>
+            <h2 style="margin:0;">Arkiverede vagter</h2>
+            <div class="card-subtitle">Flyt til historik, når timer/løn er landet</div>
+        </div>
+
+        {% if archived_shifts|length > 0 %}
+            <form method="post" action="{{ url_for('admin_sink_all_archived') }}"
+                  onsubmit="return confirm('Flyt ALLE arkiverede arrangementer til historik?');"
+                  style="margin:0;">
+                <button class="btn btn-secondary">Flyt alle</button>
+            </form>
+        {% endif %}
+    </div>
+
+    {% if not archived_shifts %}
+        <p>Ingen arkiverede vagter.</p>
+    {% else %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="nowrap">Dato</th>
+                        <th class="nowrap">Start</th>
+                        <th>Hvem</th>
+                        <th>Hvad</th>
+                        <th>Hvor</th>
+                        <th class="cell-center nowrap">Behov</th>
+                        <th class="cell-center nowrap">Godkendte</th>
+                        <th class="nowrap">Handling</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in archived_shifts %}
+                        <tr>
+                            <td class="nowrap">{{ s.date|dkdate }}</td>
+                            <td class="nowrap">{{ s.time }}</td>
+                            <td>{{ s.customer or "-" }}</td>
+                            <td>{{ s.event_type or "-" }}</td>
+                            <td>{{ s.location }}</td>
+                            <td class="cell-center nowrap">{{ s.needed }}</td>
+                            <td class="cell-center nowrap">{{ s.approved }}</td>
+                            <td style="display:flex; gap:8px; flex-wrap:wrap;">
+                                <a class="btn btn-secondary btn-small" href="{{ url_for('admin_edit_shift_form', shift_id=s.id) }}">Rediger</a>
+
+                                <form method="post" action="{{ url_for('admin_set_shift_active', shift_id=s.id) }}" style="margin:0;">
+                                    <input type="hidden" name="is_active" value="1">
+                                    <button class="btn btn-primary btn-small" type="submit">Gør aktiv</button>
+                                </form>
+
+                                <form method="post" action="{{ url_for('admin_set_shift_active', shift_id=s.id) }}"
+                                      onsubmit="return confirm('Flyt til historik? (ikke sletning)');"
+                                      style="margin:0;">
+                                    <input type="hidden" name="is_active" value="-1">
+                                    <button class="btn btn-danger btn-small" type="submit">Til historik</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+(function(){
+    const input = document.getElementById("shiftFilter");
+    const table = document.getElementById("activeTable");
+    if (!input || !table) return;
+
+    const rows = Array.from(table.querySelectorAll("tbody tr"));
+    input.addEventListener("input", () => {
+        const q = input.value.toLowerCase().trim();
+        rows.forEach(r => {
+            const txt = r.innerText.toLowerCase();
+            r.style.display = txt.includes(q) ? "" : "none";
+        });
+    });
+})();
+</script>
+
+{% endblock %}

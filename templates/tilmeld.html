@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}Tilmeld vagt – Myggen's{% endblock %}
+
+{% block content %}
+<div class="layout-two-column">
+    <section class="card">
+        <div class="card-header">
+            <h1>Tilmeld vagt</h1>
+        </div>
+
+        <div style="margin-bottom: 10px;">
+            <strong>{{ shift.date|dkdate }}</strong> – kl. {{ shift.time }}<br>
+            {{ shift.location }}<br>
+            {% if shift.description %}
+                <span class="helper-text">{{ shift.description }}</span>
+            {% endif %}
+        </div>
+
+        <hr style="border-color: rgba(255,255,255,0.06); margin: 10px 0;">
+
+        {% if error %}
+            <div class="flash flash-error" style="margin-bottom: 10px;">
+                <strong>{{ error }}</strong>
+            </div>
+        {% endif %}
+
+        {% if message %}
+            <div class="flash flash-success" style="margin-bottom: 10px;">
+                <strong>{{ message }}</strong>
+            </div>
+            <p>
+                <a href="{{ url_for('vagtoversigt') }}" class="btn btn-secondary">Tilbage til vagtoversigten</a>
+                <a href="{{ url_for('mine_vagter') }}" class="btn btn-primary" style="margin-left: 6px;">Gå til mine vagter</a>
+            </p>
+        {% else %}
+            <p>Udfyld dit navn og telefonnummer for at melde dig til denne vagt.</p>
+
+            <form method="post" id="signup-form" style="margin-top: 10px;">
+                <div style="margin-bottom: 8px;">
+                    <label for="name">Navn</label><br />
+                    <input type="text" id="name" name="name" required />
+                </div>
+
+                <div style="margin-bottom: 8px;">
+                    <label for="phone">Telefonnummer</label><br />
+                    <input type="text" id="phone" name="phone" required />
+                </div>
+
+                <div style="margin-bottom: 12px;">
+                    <p style="margin-bottom: 4px;">Hvornår kan du arbejde denne dag?</p>
+                    <label>
+                        <input type="radio" name="availability_type" value="any" checked />
+                        Jeg kan hele dagen
+                    </label><br />
+                    <label>
+                        <input type="radio" name="availability_type" value="from" />
+                        Jeg kan først fra kl:
+                    </label>
+                    <input type="time" id="available_from" name="available_from" disabled />
+                    <div class="helper-text">
+                        Hvis du fx først kan efter kl. 18, så vælg tidspunktet her.
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 10px;">
+                    <label>
+                        <input type="checkbox" id="remember" checked />
+                        Husk mig på denne enhed
+                    </label>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Bekræft tilmelding</button>
+
+                <a href="{{ url_for('vagtoversigt') }}" class="btn btn-ghost" style="margin-left: 6px;">
+                    Fortryd
+                </a>
+            </form>
+        {% endif %}
+    </section>
+
+    <aside class="hero-panel">
+        <div class="hero-bg-rotator"></div>
+        <div class="hero-panel-inner">
+            <div>
+                <div class="hero-heading">Tip</div>
+                <p class="hero-text">
+                    Skriv altid det samme telefonnummer, så systemet kan genkende dig og samle dine vagter ét sted.
+                </p>
+            </div>
+            <div class="hero-badge-row">
+                <span class="tag-pill">Nem tilmelding</span>
+                <span class="tag-pill">Mobil først</span>
+            </div>
+        </div>
+    </aside>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const nameInput = document.getElementById("name");
+    const phoneInput = document.getElementById("phone");
+    const rememberCheckbox = document.getElementById("remember");
+    const form = document.getElementById("signup-form");
+    const availabilityRadios = document.querySelectorAll("input[name='availability_type']");
+    const availableFromInput = document.getElementById("available_from");
+
+    // Husk mig
+    try {
+        const savedName = localStorage.getItem("myggen_name");
+        const savedPhone = localStorage.getItem("myggen_phone");
+        if (savedName) nameInput.value = savedName;
+        if (savedPhone) phoneInput.value = savedPhone;
+    } catch (e) {
+        console.log("localStorage ikke tilgængelig:", e);
+    }
+
+    form.addEventListener("submit", function () {
+        if (rememberCheckbox.checked) {
+            try {
+                localStorage.setItem("myggen_name", nameInput.value);
+                localStorage.setItem("myggen_phone", phoneInput.value);
+            } catch (e) {
+                console.log("Kunne ikke gemme i localStorage:", e);
+            }
+        }
+    });
+
+    function updateAvailabilityInput() {
+        const selected = document.querySelector("input[name='availability_type']:checked");
+        if (selected && selected.value === "from") {
+            availableFromInput.disabled = false;
+        } else {
+            availableFromInput.disabled = true;
+            availableFromInput.value = "";
+        }
+    }
+
+    availabilityRadios.forEach(r => {
+        r.addEventListener("change", updateAvailabilityInput);
+    });
+
+    updateAvailabilityInput();
+});
+</script>
+{% endblock %}

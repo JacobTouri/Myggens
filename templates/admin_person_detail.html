@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Profil – {{ person.name }}{% endblock %}
+
+{% block content %}
+<h1>Profil – {{ person.name }}</h1>
+
+<p>
+    <a href="{{ url_for('admin_person_list') }}">Tilbage til personkartotek</a>
+    |
+    <a href="{{ url_for('admin_dashboard') }}">Tilbage til admin-oversigten</a>
+</p>
+
+<h2>Basisinfo</h2>
+<ul>
+    <li><strong>Navn:</strong> {{ person.name }}</li>
+    <li><strong>Telefon:</strong> {{ person.phone }}</li>
+    <li><strong>Oprettet:</strong> {{ person.created_at }}</li>
+</ul>
+
+<h2>Vagter for denne person</h2>
+
+{% if not signups %}
+    <p>Denne person har ingen vagter i systemet endnu.</p>
+{% else %}
+    <table border="1" cellpadding="4" cellspacing="0">
+        <thead>
+            <tr>
+                <th>Dato</th>
+                <th>Start</th>
+                <th>Sted</th>
+                <th>Beskrivelse</th>
+                <th>Status</th>
+                <th>Angivet tilgængelig fra</th>
+                <th>Mødetid (admin)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in signups %}
+            <tr>
+                <td>{{ s.date }}</td>
+                <td>{{ s.start_time }}</td>
+                <td>{{ s.location }}</td>
+                <td>{{ s.description }}</td>
+                <td>{{ s.status }}</td>
+                <td>{{ s.available_from or 'Hele dagen' }}</td>
+                <td>{{ s.meet_time or '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+
+{% endblock %}

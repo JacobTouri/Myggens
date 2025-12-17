@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Rediger vagt – Myggen's{% endblock %}
+
+{% block content %}
+    <h1>Rediger vagt</h1>
+
+    <p>
+        <a href="{{ url_for('admin_dashboard') }}">Tilbage til admin-oversigten</a>
+    </p>
+
+    <form method="post">
+        <table>
+            <tr>
+                <td><label for="date">Dato (DD-MM-YYYY)</label></td>
+                <td>
+                    <!-- Viser datoen i dansk format -->
+                    <input type="text" id="date" name="date"
+                           value="{{ shift.date_dk }}" required>
+                </td>
+            </tr>
+            <tr>
+                <td><label for="start_time">Starttid (HH:MM)</label></td>
+                <td>
+                    <input type="text" id="start_time" name="start_time"
+                           value="{{ shift.time }}" required>
+                </td>
+            </tr>
+            <tr>
+                <td><label for="location">Sted (hvor)</label></td>
+                <td>
+                    <input type="text" id="location" name="location"
+                           value="{{ shift.location }}" required>
+                </td>
+            </tr>
+            <tr>
+                <td><label for="description">Beskrivelse (evt. noter)</label></td>
+                <td>
+                    <input type="text" id="description" name="description"
+                           value="{{ shift.description or '' }}">
+                </td>
+            </tr>
+            <tr>
+                <td><label for="customer">Hvem (kunde / selskab)</label></td>
+                <td>
+                    <input type="text" id="customer" name="customer"
+                           value="{{ shift.customer or '' }}">
+                </td>
+            </tr>
+            <tr>
+                <td><label for="event_type">Hvad (type arrangement)</label></td>
+                <td>
+                    <input type="text" id="event_type" name="event_type"
+                           value="{{ shift.event_type or '' }}">
+                </td>
+            </tr>
+            <tr>
+                <td><label for="guest_count">Antal gæster</label></td>
+                <td>
+                    <input type="number" id="guest_count" name="guest_count"
+                           min="0" value="{{ shift.guest_count or '' }}">
+                </td>
+            </tr>
+            <tr>
+                <td><label for="required_staff">Antal medarbejdere (bemanding)</label></td>
+                <td>
+                    <input type="number" id="required_staff" name="required_staff"
+                           min="1" value="{{ shift.needed }}" required>
+                </td>
+            </tr>
+        </table>
+
+        <button type="submit" style="margin-top: 10px;">Gem ændringer</button>
+    </form>
+{% endblock %}
