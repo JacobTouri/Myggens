@@ -101,10 +101,11 @@ def init_db():
             status TEXT NOT NULL,
             available_from TEXT,
             meet_time TEXT,
-
             work_start TEXT,
             work_end TEXT,
             work_hours REAL,
+            approved_work_hours REAL,
+            hours_approved_by_admin INTEGER DEFAULT 0,
 
             -- NYT: løn/afregning
             payroll_paid INTEGER DEFAULT 0,      -- 0 = ikke afregnet, 1 = afregnet
@@ -118,6 +119,15 @@ def init_db():
         """
     )
 
+    # --- Mini-migration: sørg for at nye kolonner findes (SQLite kan ikke "ALTER TABLE ... ADD COLUMN IF NOT EXISTS")
+    cur.execute("PRAGMA table_info(signups)")
+    cols = {row[1] for row in cur.fetchall()}  # row[1] = column name
+
+    if "approved_work_hours" not in cols:
+        cur.execute("ALTER TABLE signups ADD COLUMN approved_work_hours REAL")
+
+    if "hours_approved_by_admin" not in cols:
+        cur.execute("ALTER TABLE signups ADD COLUMN hours_approved_by_admin INTEGER DEFAULT 0")
 
 
     conn.commit()
