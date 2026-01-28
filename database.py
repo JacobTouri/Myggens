@@ -54,6 +54,14 @@ def get_connection():
 
 print("DB PATH:", os.path.abspath(DB_PATH))
 
+def _ensure_column(conn: sqlite3.Connection, table: str, col: str, coldef: str) -> None:
+    cur = conn.cursor()
+    cur.execute(f"PRAGMA table_info({table})")
+    cols = {r[1] for r in cur.fetchall()}  # r[1] = name
+    if col not in cols:
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN {col} {coldef}")
+        conn.commit()
+
 def init_db():
     """Opret tabeller, hvis de ikke findes, og seed nogle dummy-shifts."""
     conn = get_connection()
@@ -100,6 +108,7 @@ def init_db():
             shift_id INTEGER NOT NULL,
             status TEXT NOT NULL,
             available_from TEXT,
+            available_until TEXT,
             meet_time TEXT,
             work_start TEXT,
             work_end TEXT,
@@ -132,6 +141,11 @@ def init_db():
 
     conn.commit()
 
+    # ✅ Auto-migration: nye kolonner (kører hver startup)
+    _ensure_column(conn, "shifts", "admin_note", "TEXT")
+    _ensure_column(conn, "signups", "available_until", "TEXT")
+    _ensure_column(conn, "signups", "freelancer_note", "TEXT")
+
     # Seed nogle standard-shifts første gang
     cur.execute("SELECT COUNT(*) AS c FROM shifts")
     row = cur.fetchone()
@@ -152,29 +166,23 @@ def init_db():
     conn.close()
 
 
-def _shift_row_to_dict(
-    row,
-    approved_count: int = 0,
-    requested_count: int = 0,
-    release_requested_count: int = 0,
-):
-    """Mapper en DB-row til det format, dine templates bruger."""
+def _shift_row_to_dict(row, approved_count: int = 0, requested_count: int = 0, release_requested_count: int = 0):
     pending = requested_count + release_requested_count
-
     return {
         "id": row["id"],
         "date": row["date"],
         "time": row["start_time"],
         "location": row["location"],
         "description": row["description"],
-        # Nye felter hvis du har lavet dem i shifts-tabellen:
         "customer": row["customer"] if "customer" in row.keys() else None,
         "event_type": row["event_type"] if "event_type" in row.keys() else None,
         "guest_count": row["guest_count"] if "guest_count" in row.keys() else None,
-        # Bemanding
+
+        # ✅ NYT
+        "admin_note": row["admin_note"] if "admin_note" in row.keys() else None,
+
         "needed": row["required_staff"],
         "approved": approved_count,
-        # Pending-ting til admin-dashboard
         "pending": pending,
         "pending_signups": requested_count,
         "pending_releases": release_requested_count,
@@ -237,22 +245,32 @@ def create_shift(
     customer: str | None = None,
     event_type: str | None = None,
     guest_count: int | None = None,
-):
+    admin_note: str | None = None,
+) -> int:
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
         """
-        INSERT INTO shifts (
-            date, start_time, location, description,
-            required_staff, customer, event_type, guest_count, is_active
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+        INSERT INTO shifts (date, start_time, location, description, required_staff,
+                            customer, event_type, guest_count, admin_note)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (date, start_time, location, description,
-         required_staff, customer, event_type, guest_count),
+        (
+            date,
+            start_time,
+            location,
+            description,
+            required_staff,
+            customer,
+            event_type,
+            guest_count,
+            admin_note,
+        ),
     )
+    shift_id = cur.lastrowid
     conn.commit()
     conn.close()
+    return int(shift_id)
 
 
 def update_shift(
@@ -265,6 +283,7 @@ def update_shift(
     customer: str | None = None,
     event_type: str | None = None,
     guest_count: int | None = None,
+    admin_note: str | None = None,
 ):
     conn = get_connection()
     cur = conn.cursor()
@@ -272,12 +291,15 @@ def update_shift(
         """
         UPDATE shifts
         SET date = ?, start_time = ?, location = ?, description = ?,
-            required_staff = ?, customer = ?, event_type = ?, guest_count = ?
+            required_staff = ?, customer = ?, event_type = ?, guest_count = ?,
+            admin_note = ?
         WHERE id = ?
         """,
         (
             date, start_time, location, description,
-            required_staff, customer, event_type, guest_count, shift_id,
+            required_staff, customer, event_type, guest_count,
+            admin_note,
+            shift_id,
         ),
     )
     conn.commit()
@@ -381,27 +403,30 @@ def create_signup(
     phone: str,
     initial_status: str = STATUS_REQUESTED,
     available_from: str | None = None,
+    available_until: str | None = None,
+    freelancer_note: str | None = None,
 ):
     """Opret en tilmelding. Returnerer signup_id eller None hvis den allerede findes."""
     person_id = get_or_create_person(name, phone)
     conn = get_connection()
     cur = conn.cursor()
+
     try:
         cur.execute(
             """
-            INSERT INTO signups (person_id, shift_id, status, available_from)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO signups (person_id, shift_id, status, available_from, available_until, freelancer_note)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (person_id, shift_id, initial_status, available_from),
+            (person_id, shift_id, initial_status, available_from, available_until, freelancer_note),
         )
         conn.commit()
         signup_id = cur.lastrowid
     except sqlite3.IntegrityError:
-        # UNIQUE(person_id, shift_id) – allerede tilmeldt
         signup_id = None
 
     conn.close()
     return signup_id
+
 
 
 def get_signups_by_phone(phone: str):
@@ -476,8 +501,6 @@ def get_signups_by_phone(phone: str):
     return result
 
 
-
-
 def get_signup(signup_id: int):
     conn = get_connection()
     cur = conn.cursor()
@@ -505,6 +528,17 @@ def get_signup(signup_id: int):
         return None
     return dict(row)
 
+def set_shift_admin_note(shift_id: int, admin_note: str | None) -> None:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE shifts SET admin_note = ? WHERE id = ?",
+        (admin_note, shift_id),
+    )
+    conn.commit()
+    conn.close()
+
+
 def set_signup_worked_hours(signup_id: int,
                             work_start: str | None,
                             work_end: str | None,
@@ -528,6 +562,8 @@ def set_signup_status(signup_id: int, new_status: str):
     )
     conn.commit()
     conn.close()
+
+
 
 def set_shift_state(shift_id: int, state: int):
     """
@@ -626,7 +662,9 @@ def get_signups_for_shift(shift_id: int):
             sg.id AS signup_id,
             sg.status AS status,
             sg.available_from AS available_from,
+            sg.available_until AS available_until,
             sg.meet_time AS meet_time,
+            sg.freelancer_note AS freelancer_note,
             p.name AS person_name,
             p.phone AS phone
         FROM signups sg
@@ -648,9 +686,11 @@ def get_signups_for_shift(shift_id: int):
                 "signup_id": row["signup_id"],
                 "status": row["status"],
                 "available_from": row["available_from"],
+                "available_until": row["available_until"],
                 "meet_time": row["meet_time"],
                 "name": row["person_name"],
                 "phone": row["phone"],
+                "freelancer_note": row["freelancer_note"],
             }
         )
 
@@ -671,6 +711,7 @@ def get_signups_for_shift_with_hours(shift_id: int):
             sg.status AS status,
             sg.available_from AS available_from,
             sg.meet_time AS meet_time,
+            sg.freelancer_note AS freelancer_note,
             sg.work_start AS work_start,
             sg.work_end AS work_end,
             sg.work_hours AS work_hours,
@@ -703,6 +744,7 @@ def get_signups_for_shift_with_hours(shift_id: int):
                 "payroll_paid_at": row["payroll_paid_at"],
                 "name": row["person_name"],
                 "phone": row["phone"],
+                "freelancer_note": row["freelancer_note"],
             }
         )
 
@@ -744,7 +786,8 @@ def get_hours_for_month(year: int, month: int, include_paid: bool = False, inclu
     month_str = f"{month:02d}"
     today_str = date.today().strftime("%Y-%m-%d")
 
-    base_query = """
+    # Normal-vagter (signups + shifts)
+    normal_query = """
         SELECT
             sg.id AS signup_id,
             sg.work_start,
@@ -754,33 +797,74 @@ def get_hours_for_month(year: int, month: int, include_paid: bool = False, inclu
             sg.hours_approved_by_admin,
             sg.payroll_paid,
             sg.payroll_paid_at,
+
             s.date AS shift_date,
-            s.location,
-            s.description,
+            s.location AS location,
+            s.description AS description,
+
             p.name AS person_name,
             p.phone AS phone
         FROM signups sg
         JOIN shifts s ON s.id = sg.shift_id
         JOIN persons p ON p.id = sg.person_id
+        WHERE
+            sg.status = ?
+            AND substr(s.date, 1, 4) = ?
+            AND substr(s.date, 6, 2) = ?
+            AND s.date <= ?
     """
 
-    conditions = [
-        "sg.status = ?",
-        "substr(s.date, 1, 4) = ?",
-        "substr(s.date, 6, 2) = ?",
-        "s.date <= ?",
-    ]
-    params = [STATUS_APPROVED, year_str, month_str, today_str]
+    normal_params = ["APPROVED", year_str, month_str, today_str]
 
     if not include_missing:
-        conditions.append("sg.work_hours IS NOT NULL")
+        normal_query += " AND sg.work_hours IS NOT NULL"
 
     if not include_paid:
-        conditions.append("(sg.payroll_paid IS NULL OR sg.payroll_paid = 0)")
+        normal_query += " AND (sg.payroll_paid IS NULL OR sg.payroll_paid = 0)"
 
-    query = base_query + " WHERE " + " AND ".join(conditions) + " ORDER BY p.name, s.date"
+    # Ekstravagter (extra_shifts)
+    extra_query = """
+        SELECT
+            es.id AS signup_id,
+            es.work_start,
+            es.work_end,
+            es.work_hours,
+            es.approved_work_hours,
+            es.hours_approved_by_admin,
+            es.payroll_paid,
+            es.payroll_paid_at,
 
-    cur.execute(query, params)
+            es.date AS shift_date,
+            '' AS location,
+            es.note AS description,
+
+            p.name AS person_name,
+            p.phone AS phone
+        FROM extra_shifts es
+        JOIN persons p ON p.id = es.person_id
+        WHERE
+            substr(es.date, 1, 4) = ?
+            AND substr(es.date, 6, 2) = ?
+            AND es.date <= ?
+    """
+
+    extra_params = [year_str, month_str, today_str]
+
+    if not include_missing:
+        extra_query += " AND es.work_hours IS NOT NULL"
+
+    if not include_paid:
+        extra_query += " AND (es.payroll_paid IS NULL OR es.payroll_paid = 0)"
+
+    # Samlet
+    query = f"""
+        {normal_query}
+        UNION ALL
+        {extra_query}
+        ORDER BY person_name, shift_date
+    """
+
+    cur.execute(query, normal_params + extra_params)
     rows = cur.fetchall()
     conn.close()
 
@@ -802,9 +886,6 @@ def get_hours_for_month(year: int, month: int, include_paid: bool = False, inclu
             "phone": row["phone"],
         })
     return result
-
-
-
 
 def get_pending_admin_actions():
     """
@@ -917,18 +998,28 @@ def get_signup_by_id(signup_id: int):
 
     cur.execute("""
         SELECT
-            sg.id,
+            sg.id AS signup_id,
             sg.shift_id,
             sg.person_id,
             sg.status,
+
+            sg.available_from,
+            sg.available_until,
+            sg.meet_time,
+
             sg.work_start,
             sg.work_end,
             sg.work_hours,
             sg.approved_work_hours,
             sg.hours_approved_by_admin,
             sg.payroll_paid,
-            sg.payroll_paid_at
+            sg.payroll_paid_at,
+
+            p.name AS name,
+            p.phone AS phone
+
         FROM signups sg
+        LEFT JOIN persons p ON p.id = sg.person_id
         WHERE sg.id = ?
     """, (signup_id,))
 
@@ -938,8 +1029,27 @@ def get_signup_by_id(signup_id: int):
     if not row:
         return None
 
-    # row er sqlite Row (dict-like) hvis du har row_factory
     return dict(row)
+
+def cancel_signup_request(signup_id: int) -> bool:
+    """
+    Annullér en tilmelding hvis den stadig er REQUESTED (afventer).
+    Returnerer True hvis den blev slettet, ellers False.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        "DELETE FROM signups WHERE id = ? AND status = ?",
+        (signup_id, STATUS_REQUESTED),
+    )
+    conn.commit()
+
+    ok = cur.rowcount > 0
+    conn.close()
+    return ok
+
+
 
 
 def delete_person(person_id: int):
@@ -952,6 +1062,170 @@ def delete_person(person_id: int):
     # Først signups, så personen (pga. foreign key)
     cur.execute("DELETE FROM signups WHERE person_id = ?", (person_id,))
     cur.execute("DELETE FROM persons WHERE id = ?", (person_id,))
+    conn.commit()
+    conn.close()
+
+def create_extra_shift(
+    name: str,
+    phone: str,
+    date_str: str,        # 'YYYY-MM-DD'
+    work_start: str,      # 'HH:MM'
+    work_end: str,        # 'HH:MM'
+    work_hours: float,
+    note: str | None = None,
+) -> int:
+    person_id = get_or_create_person(name, phone)
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO extra_shifts
+            (person_id, date, work_start, work_end, work_hours, note, status)
+        VALUES
+            (?, ?, ?, ?, ?, ?, 'REQUESTED')
+        """,
+        (person_id, date_str, work_start, work_end, work_hours, note or None),
+    )
+    conn.commit()
+    extra_id = cur.lastrowid
+    conn.close()
+    return extra_id
+
+
+def get_extra_hours_for_month(year: int, month: int, include_paid: bool, include_missing: bool = True):
+    """
+    Returnerer rækker til admin_timer visning, men for extra_shifts.
+    match-format-ish:
+      person_name, phone, shift_date, location, description, work_start, work_end, work_hours,
+      approved_work_hours, hours_approved_by_admin, payroll_paid, payroll_paid_at, extra_id
+    """
+    # YYYY-MM prefix
+    prefix = f"{year:04d}-{month:02d}-"
+
+    where_paid = ""
+    if not include_paid:
+        where_paid = "AND es.payroll_paid = 0"
+
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        f"""
+        SELECT
+            es.id AS extra_id,
+            p.name AS person_name,
+            p.phone AS phone,
+
+            es.date AS shift_date,
+            'Ekstra' AS location,
+            COALESCE(es.note, '') AS description,
+
+            es.work_start,
+            es.work_end,
+            es.work_hours,
+
+            es.approved_work_hours,
+            es.hours_approved_by_admin,
+            es.payroll_paid,
+            es.payroll_paid_at,
+            es.status
+        FROM extra_shifts es
+        JOIN persons p ON p.id = es.person_id
+        WHERE es.date LIKE ?
+          {where_paid}
+        ORDER BY p.name COLLATE NOCASE ASC, es.date ASC
+        """,
+        (prefix + "%",),
+    )
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return rows
+
+
+def get_extra_shift_by_id(extra_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT
+            id,
+            person_id,
+            date,
+            work_start,
+            work_end,
+            work_hours,
+            note,
+            status,
+            approved_work_hours,
+            hours_approved_by_admin,
+            payroll_paid,
+            payroll_paid_at,
+            created_at
+        FROM extra_shifts
+        WHERE id = ?
+        """,
+        (extra_id,),
+    )
+    row = cur.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def approve_extra_work_hours(extra_id: int, approved_hours: float):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        UPDATE extra_shifts
+        SET approved_work_hours = ?,
+            hours_approved_by_admin = 1,
+            status = 'APPROVED'
+        WHERE id = ?
+        """,
+        (approved_hours, extra_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def reject_extra_shift(extra_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        UPDATE extra_shifts
+        SET status = 'REJECTED'
+        WHERE id = ?
+        """,
+        (extra_id,),
+    )
+    conn.commit()
+    conn.close()
+
+
+def mark_extra_paid(extra_id: int, paid: bool):
+    conn = get_connection()
+    cur = conn.cursor()
+    if paid:
+        cur.execute(
+            """
+            UPDATE extra_shifts
+            SET payroll_paid = 1,
+                payroll_paid_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (extra_id,),
+        )
+    else:
+        cur.execute(
+            """
+            UPDATE extra_shifts
+            SET payroll_paid = 0,
+                payroll_paid_at = NULL
+            WHERE id = ?
+            """,
+            (extra_id,),
+        )
     conn.commit()
     conn.close()
 

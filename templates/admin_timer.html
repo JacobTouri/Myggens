@@ -22,7 +22,6 @@
   .form-field select{width:100%;}
 
   .table-wrap{overflow:auto;border-radius:14px;border:1px solid rgba(255,255,255,0.10);background:rgba(0,0,0,0.15);}
-
   table{width:100%;border-collapse:collapse;min-width:0;table-layout:auto;}
   th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,0.08);font-size:14px;white-space:normal;word-break:break-word;vertical-align:top;}
   th{position:sticky;top:0;z-index:1;background:rgba(25,25,25,0.95);color:var(--text-muted);font-size:12px;text-transform:uppercase;letter-spacing:0.08em;}
@@ -34,6 +33,32 @@
   .person-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
   .person-name{margin:0;font-size:18px;font-weight:700;letter-spacing:-0.01em;}
   .person-sub{margin-top:4px;color:var(--text-muted);font-size:13px;}
+
+  .summary-row{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:10px;}
+  .tag-pill-strong{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:8px 12px;border-radius:999px;
+    border:1px solid rgba(255,255,255,0.12);
+    background:rgba(255,255,255,0.04);
+    font-weight:800;
+  }
+
+  /* Ny: “success” knap (lys grøn) */
+  .btn-success{
+    border:1px solid rgba(48,199,135,0.55);
+    background: rgba(48,199,135,0.18);
+    color: #b7f7cf;
+  }
+  .btn-success:hover{
+    filter: brightness(1.05);
+  }
+
+  /* Ny: footer under personens tabel */
+  .person-total-footer{
+    display:flex;
+    justify-content:flex-end;
+    margin-top:10px;
+  }
 </style>
 {% endblock %}
 
@@ -88,6 +113,15 @@
       </div>
     </div>
   </form>
+
+  <div class="summary-row">
+    <div class="helper-text">
+      Periode: {{ "%02d"|format(month) }}/{{ year }}
+    </div>
+    <div class="tag-pill-strong">
+      Total (alle): {{ "%.2f"|format(grand_total or 0) }} timer
+    </div>
+  </div>
 </div>
 
 {% if not people %}
@@ -128,7 +162,7 @@
 
           <tr>
             <td>{{ r.shift_date|dkdate }}</td>
-            <td>{{ r.location }}</td>
+            <td>{{ r.location or "-" }}</td>
             <td>{{ r.description }}</td>
             <td>{{ r.work_start or "-" }}</td>
             <td>{{ r.work_end or "-" }}</td>
@@ -183,7 +217,7 @@
                         class="btn-row"
                         style="margin:0;">
                     <input type="hidden" name="paid" value="1">
-                    <button class="btn btn-primary btn-small">
+                    <button class="btn btn-success btn-small">
                       Marker afregnet
                     </button>
                   </form>
@@ -198,6 +232,14 @@
         </tbody>
       </table>
     </div>
+
+    <!-- Ny: personsummen nederst til højre -->
+    <div class="person-total-footer">
+      <div class="tag-pill-strong">
+        I alt ({{ person.name }}): {{ "%.2f"|format(person.total_hours or 0) }} timer
+      </div>
+    </div>
+
   </div>
 {% endfor %}
 

@@ -2,31 +2,19 @@
 
 {% block title %}Admin – vagt {{ shift.date|dkdate }}{% endblock %}
 {% block body_class %}admin-wide{% endblock %}
+
 {% block extra_head %}
 <style>
   /* Layout */
-  .page-top {
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
+  .page-top { display:flex; align-items:flex-start; justify-content:space-between; gap: 12px; flex-wrap: wrap; }
   .page-title { margin:0; }
   .subtitle { color: var(--text-muted); margin-top: 4px; }
 
-  .meta-row{
-    display:flex;
-    flex-wrap:wrap;
-    gap: 8px;
-    margin-top: 10px;
-  }
+  .meta-row{ display:flex; flex-wrap:wrap; gap: 8px; margin-top: 10px; }
 
   .pill{
-    display:inline-flex;
-    align-items:center;
-    padding: 4px 10px;
-    border-radius: 999px;
+    display:inline-flex; align-items:center;
+    padding: 4px 10px; border-radius: 999px;
     font-size: 12px;
     border: 1px solid rgba(255,255,255,0.12);
     background: rgba(255,255,255,0.04);
@@ -41,18 +29,10 @@
   .btn-row { display:flex; gap:8px; flex-wrap:wrap; }
 
   /* Form */
-  .form-grid{
-    display:grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-  @media (max-width: 800px){
-    .form-grid{ grid-template-columns: 1fr; }
-  }
+  .form-grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 800px){ .form-grid{ grid-template-columns: 1fr; } }
   .form-span-2{ grid-column: span 2; }
-  @media (max-width: 800px){
-    .form-span-2{ grid-column: auto; }
-  }
+  @media (max-width: 800px){ .form-span-2{ grid-column: auto; } }
 
   /* Table */
   .table-wrap{
@@ -64,9 +44,7 @@
   table{ width:100%; border-collapse:collapse; min-width: 980px; }
   th, td{ padding: 10px 10px; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 14px; vertical-align: top; }
   th{
-    position: sticky;
-    top: 0;
-    z-index: 1;
+    position: sticky; top: 0; z-index: 1;
     background: rgba(20,20,20,0.95);
     color: var(--text-muted);
     font-size: 12px;
@@ -76,23 +54,10 @@
   tr:hover td{ background: rgba(255,255,255,0.03); }
   .cell-center{ text-align:center; }
 
-  .inline-form{
-    display:flex;
-    gap:8px;
-    align-items:center;
-    flex-wrap:wrap;
-    margin:0;
-  }
-  .inline-form input[type="time"]{
-    width: 120px;
-    max-width: 100%;
-  }
+  .inline-form{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0; }
+  .inline-form input[type="time"]{ width: 120px; max-width: 100%; }
 
-  .status-text{
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-top: 4px;
-  }
+  .status-text{ font-size: 12px; color: var(--text-muted); margin-top: 4px; }
 
   .section-title{ margin:0; }
   .section-sub{ color: var(--text-muted); margin-top: 4px; }
@@ -102,47 +67,41 @@
     grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
     gap: 14px;
   }
-  @media (max-width: 950px){
-    .split-row{ grid-template-columns: 1fr; }
+  @media (max-width: 950px){ .split-row{ grid-template-columns: 1fr; } }
+
+  /* Wide table breakout for signups */
+  .full-width-card { margin-left: -18px; margin-right: -18px; border-radius: 0; }
+  @media (max-width: 600px) { .full-width-card { margin-left: -12px; margin-right: -12px; } }
+
+  /* Signups responsive */
+  #signups table { min-width: 0 !important; width: 100%; }
+  #signups th, #signups td { white-space: normal; }
+  #signups td:nth-child(2) { white-space: nowrap; } /* telefon */
+  #signups .inline-form { flex-wrap: nowrap; }
+  #signups .inline-form input[type="time"] { width: 110px; }
+  #signups .btn-row { flex-wrap: wrap; }
+  #signups td:last-child { min-width: 220px; }
+
+  /* Admin note field */
+  textarea.admin-note{
+    width:100%;
+    min-height: 96px;
+    resize: vertical;
   }
 
-  /* Full-width helpers */
-  .grid-span-all { grid-column: 1 / -1; }
-
-  /* Wide table breakout for signups (går ud til app-content margin) */
-  .full-width-card {
-    margin-left: -18px;
-    margin-right: -18px;
-    border-radius: 0;
+  .note-box{
+    margin-top: 10px;
+    border: 1px dashed rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.03);
+    border-radius: 14px;
+    padding: 10px 12px;
   }
-  @media (max-width: 600px) {
-    .full-width-card {
-      margin-left: -12px;
-      margin-right: -12px;
-    }
-  }
-
-  /* Signups: gør tabellen responsiv uden horisontal scroll */
-#signups table { min-width: 0 !important; width: 100%; }
-#signups th, #signups td { white-space: normal; }
-
-/* Små “hårde” felter må gerne være faste */
-#signups td:nth-child(2) { white-space: nowrap; } /* telefon */
-
-/* Mødetid-feltet må ikke eksplodere */
-#signups .inline-form { flex-wrap: nowrap; }
-#signups .inline-form input[type="time"] { width: 110px; }
-
-/* Handlinger: lad knapperne wrap i højden i stedet for at presse bredden */
-#signups .btn-row { flex-wrap: wrap; }
-#signups td:last-child { min-width: 220px; } /* så handlinger ikke bliver alt for klemt */
-
+  .note-title{ font-weight:700; margin:0 0 6px 0; font-size: 13px; letter-spacing: 0.02em; text-transform: uppercase; color: var(--text-muted); }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<!-- TOP CARD -->
 <div class="card">
   <div class="page-top">
     <div>
@@ -164,6 +123,13 @@
           <span class="pill bad">⛔ Ikke dækket: {{ shift.approved }}/{{ shift.needed }}</span>
         {% endif %}
       </div>
+
+      {% if shift.admin_note %}
+        <div class="note-box">
+          <div class="note-title">Admin-note</div>
+          <div>{{ shift.admin_note }}</div>
+        </div>
+      {% endif %}
     </div>
 
     <div class="btn-row">
@@ -174,10 +140,8 @@
   </div>
 </div>
 
-<!-- EDIT + STATUS -->
 <div class="split-row">
 
-  <!-- EDIT SHIFT -->
   <div class="card">
     <div class="card-header">
       <div>
@@ -227,6 +191,19 @@
           <label for="required_staff">Antal medarbejdere (behov)</label>
           <input type="number" id="required_staff" name="required_staff" min="1" value="{{ shift.needed }}" required>
         </div>
+
+        <!-- NYT: Admin note -->
+        <div class="form-span-2">
+          <label for="admin_note">Admin-note (krav / roller)</label>
+          <textarea
+            id="admin_note"
+            name="admin_note"
+            class="admin-note"
+            placeholder="Fx: 2 tjenere + 2 køkkenfolk. Skal kunne grille."
+          >{{ shift.admin_note or "" }}</textarea>
+          <div class="helper-text">Vises for freelancere i eventkalenderen.</div>
+        </div>
+
       </div>
 
       <div class="btn-row" style="margin-top:12px;">
@@ -236,7 +213,6 @@
     </form>
   </div>
 
-  <!-- QUICK STATUS -->
   <div class="card">
     <div class="card-header">
       <div>
@@ -260,9 +236,8 @@
     </div>
   </div>
 
-</div> <!-- /split-row -->
+</div>
 
-<!-- SIGNUPS (FULDBREDDE) -->
 <div class="card full-width-card" id="signups">
   <div class="card-header">
     <div>
@@ -281,6 +256,7 @@
             <th>Navn</th>
             <th>Telefon</th>
             <th>Tilgængelig fra</th>
+            <th>Note (freelancer)</th>
             <th>Mødetid (admin)</th>
             <th>Status</th>
             <th>Handlinger</th>
@@ -288,9 +264,17 @@
         </thead>
         <tbody>
           {% for s in signups %}
+            {% set freelancer_note = None %}
+            {% if s.freelancer_note is defined %}
+              {% set freelancer_note = s.freelancer_note %}
+            {% elif s.note is defined %}
+              {% set freelancer_note = s.note %}
+            {% endif %}
+
             <tr>
               <td><strong>{{ s.name }}</strong></td>
               <td>{{ s.phone }}</td>
+
               <td>
                 {% if s.available_from %}
                   Fra kl. {{ s.available_from }}
@@ -298,6 +282,15 @@
                   Hele dagen
                 {% endif %}
               </td>
+
+              <td>
+                {% if freelancer_note %}
+                  {{ freelancer_note }}
+                {% else %}
+                  <span class="helper-text">—</span>
+                {% endif %}
+              </td>
+
               <td>
                 <form method="post"
                       action="{{ url_for('admin_set_meet_time', signup_id=s.signup_id) }}"
@@ -364,7 +357,6 @@
   {% endif %}
 </div>
 
-<!-- ADD PERSON (UNDER TABELLEN) -->
 <div class="card">
   <div class="card-header">
     <div>
@@ -391,5 +383,31 @@
     </form>
   {% endif %}
 </div>
+
+<script>
+/*
+  Scroll-fix:
+  Admin "hopper" til toppen efter POST fordi siden reloades.
+  Vi gemmer scrollY ved submit og gendanner efter reload.
+*/
+document.addEventListener("DOMContentLoaded", function () {
+  const KEY = "admin_shift_scrollY";
+
+  try {
+    const y = sessionStorage.getItem(KEY);
+    if (y !== null) {
+      sessionStorage.removeItem(KEY);
+      const yy = parseInt(y, 10);
+      if (!Number.isNaN(yy)) window.scrollTo(0, yy);
+    }
+  } catch (e) {}
+
+  document.querySelectorAll("form").forEach(form => {
+    form.addEventListener("submit", () => {
+      try { sessionStorage.setItem(KEY, String(window.scrollY || 0)); } catch (e) {}
+    });
+  });
+});
+</script>
 
 {% endblock %}

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Tilføj ekstravagt – Myggen's{% endblock %}
+
+{% block content %}
+<div class="layout-two-column">
+  <section class="card">
+    <div class="card-header">
+      <h1>Tilføj ekstravagt</h1>
+    </div>
+
+    <p class="helper-text" style="margin-top:0;">
+      Bruges til ad hoc arbejde som prep, afhentning, oprydning osv. Kun admin kan se dette.
+    </p>
+
+    <hr style="border-color: rgba(255,255,255,0.06); margin: 10px 0;">
+
+    {% if error %}
+      <div class="flash flash-error" style="margin-bottom: 10px;">
+        <strong>{{ error }}</strong>
+      </div>
+    {% endif %}
+
+    {% if message %}
+      <div class="flash flash-success" style="margin-bottom: 10px;">
+        <strong>{{ message }}</strong>
+      </div>
+
+      <p>
+        <a href="{{ url_for('mine_vagter') }}" class="btn btn-primary">Tilbage til Mine vagter</a>
+      </p>
+    {% else %}
+
+      <form method="post" id="extra-form" style="margin-top: 10px;">
+
+        <div style="margin-bottom: 8px;">
+          <label for="name">Navn</label><br />
+          <input type="text" id="name" name="name" required />
+        </div>
+
+        <div style="margin-bottom: 8px;">
+          <label for="phone">Telefonnummer</label><br />
+          <input type="text" id="phone" name="phone" required />
+        </div>
+
+        <div style="margin-bottom: 8px;">
+          <label for="date">Dato</label><br />
+          <input type="date" id="date" name="date" required />
+        </div>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom: 8px;">
+          <div style="min-width:160px; flex: 1;">
+            <label for="work_start">Start</label><br />
+            <input type="time" id="work_start" name="work_start" required />
+          </div>
+
+          <div style="min-width:160px; flex: 1;">
+            <label for="work_end">Slut</label><br />
+            <input type="time" id="work_end" name="work_end" required />
+          </div>
+        </div>
+
+        <div style="margin-bottom: 10px;">
+          <label for="note">Note til admin</label><br />
+          <textarea id="note" name="note" rows="3" style="width:100%; resize: vertical;"
+                    placeholder="Fx: prep i køkkenet / hente fustager / afhente skåle i Hobro..."></textarea>
+          <div class="helper-text" style="margin-top:6px;">
+            Skriv kort hvad timerne er brugt på.
+          </div>
+        </div>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="submit" class="btn btn-primary">Send til admin</button>
+          <a href="{{ url_for('mine_vagter') }}" class="btn btn-ghost">Fortryd</a>
+        </div>
+      </form>
+
+    {% endif %}
+  </section>
+
+  <aside class="hero-panel">
+    <div class="hero-bg-rotator"></div>
+    <div class="hero-panel-inner">
+      <div>
+        <div class="hero-heading">Tip</div>
+        <p class="hero-text">
+          Brug samme telefonnummer hver gang, så timer automatisk samles på samme profil.
+        </p>
+      </div>
+      <div class="hero-badge-row">
+        <span class="tag-pill">Ad hoc</span>
+        <span class="tag-pill">Kun admin</span>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const nameInput = document.getElementById("name");
+  const phoneInput = document.getElementById("phone");
+
+  try {
+    const savedName = localStorage.getItem("myggen_name");
+    const savedPhone = localStorage.getItem("myggen_phone");
+    if (savedName) nameInput.value = savedName;
+    if (savedPhone) phoneInput.value = savedPhone;
+  } catch (e) {}
+});
+</script>
+{% endblock %}

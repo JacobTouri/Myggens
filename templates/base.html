@@ -466,16 +466,82 @@
             h1 { font-size: 20px; }
         }
 
-
         /* Admin wide-mode: mere plads til tabeller og admin-views */
         body.admin-wide .page-shell {
-        max-width: 1500px; /* justér til 1400-1700 efter smag */
+            max-width: 1500px; /* justér til 1400-1700 efter smag */
         }
 
         @media (max-width: 900px) {
-        body.admin-wide .page-shell {
-            max-width: 1100px; /* falder tilbage på “normal” på små skærme */
+            body.admin-wide .page-shell {
+                max-width: 1100px; /* falder tilbage på “normal” på små skærme */
+            }
         }
+
+        /* =========================
+           ADMIN: Mobile polish
+           Desktop forbliver identisk
+           ========================= */
+        @media (max-width: 900px) {
+
+            /* Admin layout: stack + lidt tight spacing */
+            .admin-shell { gap: 10px; }
+
+            /* Sidebar bliver ikke sticky på mobil (ellers æder den toppen konstant) */
+            .admin-nav {
+                position: static;
+                top: auto;
+                padding: 10px;
+            }
+
+            /* Links i 2 kolonner på mobil, så menuen ikke fylder en hel roman */
+            .admin-nav {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+
+            /* Header skal spænde hele bredden */
+            .admin-nav-header {
+                grid-column: 1 / -1;
+                padding: 4px 6px 8px;
+            }
+
+            /* Nav links: lidt mere “tap-friendly” */
+            .admin-nav a {
+                margin: 0;
+                padding: 12px 10px;
+                border-radius: 14px;
+                justify-content: space-between;
+            }
+
+            /* Card headers: stack actions under title */
+            .card-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            .card-header > div:last-child {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            /* Tabeller: scroll i stedet for wrap-kaos */
+            .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .table-wrap table { min-width: 900px; }
+            .table-wrap th, .table-wrap td {
+                white-space: nowrap !important;
+                word-break: normal !important;
+            }
+
+            /* Admin content: ingen ekstra padding/ting */
+            .admin-content { padding: 0; }
+        }
+
+        @media (max-width: 600px) {
+            /* Header-right bliver hurtigt en rodebutik på mobil */
+            .header-right { gap: 8px; }
+            .header-right .btn { padding: 8px 12px; font-size: 13px; }
+            .tag-pill { display: none; }
         }
     </style>
 
@@ -566,5 +632,5 @@
 
         </div>
     </div>
-    </body>
+</body>
 </html>

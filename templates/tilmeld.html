@@ -17,6 +17,15 @@
             {% endif %}
         </div>
 
+        {% if shift.admin_note %}
+            <div class="card" style="margin-top: 10px; border-color: rgba(255, 213, 105, 0.35); background: rgba(255, 213, 105, 0.08);">
+                <div style="font-weight:700; margin-bottom:6px;">Note fra Martin</div>
+                <div class="helper-text" style="color: rgba(255,255,255,0.92);">
+                    {{ shift.admin_note }}
+                </div>
+            </div>
+        {% endif %}
+
         <hr style="border-color: rgba(255,255,255,0.06); margin: 10px 0;">
 
         {% if error %}
@@ -48,18 +57,65 @@
                 </div>
 
                 <div style="margin-bottom: 12px;">
-                    <p style="margin-bottom: 4px;">Hvornår kan du arbejde denne dag?</p>
-                    <label>
+                    <p style="margin-bottom: 6px;">Hvornår kan du arbejde denne dag?</p>
+
+                    <label style="display:block; margin-bottom:6px;">
                         <input type="radio" name="availability_type" value="any" checked />
-                        Jeg kan hele dagen
-                    </label><br />
-                    <label>
+                        Jeg kan hele vagten
+                    </label>
+
+                    <label style="display:block; margin-bottom:6px;">
                         <input type="radio" name="availability_type" value="from" />
                         Jeg kan først fra kl:
                     </label>
-                    <input type="time" id="available_from" name="available_from" disabled />
-                    <div class="helper-text">
-                        Hvis du fx først kan efter kl. 18, så vælg tidspunktet her.
+                    <input type="time" id="available_from" disabled />
+
+                    <div style="height:8px;"></div>
+
+                    <label style="display:block; margin-bottom:6px;">
+                        <input type="radio" name="availability_type" value="until" />
+                        Jeg kan senest til kl:
+                    </label>
+                    <input type="time" id="available_until" disabled />
+
+                    <div style="height:8px;"></div>
+
+                    <label style="display:block; margin-bottom:6px;">
+                        <input type="radio" name="availability_type" value="range" />
+                        Jeg kan i tidsrummet:
+                    </label>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+                        <div style="min-width:160px;">
+                            <label class="helper-text" for="available_from_range">Fra</label><br/>
+                            <input type="time" id="available_from_range" disabled />
+                        </div>
+                        <div style="min-width:160px;">
+                            <label class="helper-text" for="available_until_range">Til</label><br/>
+                            <input type="time" id="available_until_range" disabled />
+                        </div>
+                    </div>
+
+                    <!-- Hidden fields (server læser disse) -->
+                    <input type="hidden" id="available_from_hidden" name="available_from" value="" />
+                    <input type="hidden" id="available_until_hidden" name="available_until" value="" />
+
+                    <div class="helper-text" style="margin-top:8px;">
+                        Eksempel: kan fra 14:00 til 22:00 (vælg “tidsrummet” og udfyld begge felter).
+                    </div>
+                </div>
+
+                <!-- NYT: Freelancer note -->
+                <div style="margin-bottom: 12px;">
+                    <label for="freelancer_note">Note til Martin (valgfri)</label>
+                    <textarea
+                        id="freelancer_note"
+                        name="freelancer_note"
+                        rows="3"
+                        placeholder="Fx: kan tage 2 med i bilen, kan grille, har stort kørekort, kan møde lidt tidligere…"
+                        style="width:100%; resize: vertical; min-height: 86px;"
+                    ></textarea>
+                    <div class="helper-text" style="margin-top:6px;">
+                        Noten ses kun af admin og bruges til planlægning.
                     </div>
                 </div>
 
@@ -102,45 +158,84 @@ document.addEventListener("DOMContentLoaded", function () {
     const phoneInput = document.getElementById("phone");
     const rememberCheckbox = document.getElementById("remember");
     const form = document.getElementById("signup-form");
-    const availabilityRadios = document.querySelectorAll("input[name='availability_type']");
-    const availableFromInput = document.getElementById("available_from");
+
+    const radios = document.querySelectorAll("input[name='availability_type']");
+
+    const fromSingle = document.getElementById("available_from");
+    const untilSingle = document.getElementById("available_until");
+
+    const fromRange = document.getElementById("available_from_range");
+    const untilRange = document.getElementById("available_until_range");
+
+    const fromHidden = document.getElementById("available_from_hidden");
+    const untilHidden = document.getElementById("available_until_hidden");
 
     // Husk mig
     try {
         const savedName = localStorage.getItem("myggen_name");
         const savedPhone = localStorage.getItem("myggen_phone");
-        if (savedName) nameInput.value = savedName;
-        if (savedPhone) phoneInput.value = savedPhone;
-    } catch (e) {
-        console.log("localStorage ikke tilgængelig:", e);
-    }
+        if (savedName && nameInput) nameInput.value = savedName;
+        if (savedPhone && phoneInput) phoneInput.value = savedPhone;
+    } catch (e) {}
 
-    form.addEventListener("submit", function () {
-        if (rememberCheckbox.checked) {
-            try {
-                localStorage.setItem("myggen_name", nameInput.value);
-                localStorage.setItem("myggen_phone", phoneInput.value);
-            } catch (e) {
-                console.log("Kunne ikke gemme i localStorage:", e);
+    if (form) {
+        form.addEventListener("submit", function () {
+            // Sæt hidden fields ud fra valgt type
+            const selected = document.querySelector("input[name='availability_type']:checked");
+            const type = selected ? selected.value : "any";
+
+            let fromVal = "";
+            let untilVal = "";
+
+            if (type === "from") {
+                fromVal = fromSingle.value || "";
+            } else if (type === "until") {
+                untilVal = untilSingle.value || "";
+            } else if (type === "range") {
+                fromVal = fromRange.value || "";
+                untilVal = untilRange.value || "";
             }
-        }
-    });
 
-    function updateAvailabilityInput() {
+            fromHidden.value = fromVal;
+            untilHidden.value = untilVal;
+
+            // Husk mig (navn + telefon)
+            if (rememberCheckbox && rememberCheckbox.checked) {
+                try {
+                    localStorage.setItem("myggen_name", nameInput ? nameInput.value : "");
+                    localStorage.setItem("myggen_phone", phoneInput ? phoneInput.value : "");
+                } catch (e) {}
+            }
+        });
+    }
+
+    function updateAvailabilityUI() {
         const selected = document.querySelector("input[name='availability_type']:checked");
-        if (selected && selected.value === "from") {
-            availableFromInput.disabled = false;
-        } else {
-            availableFromInput.disabled = true;
-            availableFromInput.value = "";
+        const type = selected ? selected.value : "any";
+
+        // Disable alt
+        fromSingle.disabled = true;
+        untilSingle.disabled = true;
+        fromRange.disabled = true;
+        untilRange.disabled = true;
+
+        // Nulstil felter når de ikke bruges
+        if (type !== "from") fromSingle.value = "";
+        if (type !== "until") untilSingle.value = "";
+        if (type !== "range") { fromRange.value = ""; untilRange.value = ""; }
+
+        if (type === "from") {
+            fromSingle.disabled = false;
+        } else if (type === "until") {
+            untilSingle.disabled = false;
+        } else if (type === "range") {
+            fromRange.disabled = false;
+            untilRange.disabled = false;
         }
     }
 
-    availabilityRadios.forEach(r => {
-        r.addEventListener("change", updateAvailabilityInput);
-    });
-
-    updateAvailabilityInput();
+    radios.forEach(r => r.addEventListener("change", updateAvailabilityUI));
+    updateAvailabilityUI();
 });
 </script>
 {% endblock %}

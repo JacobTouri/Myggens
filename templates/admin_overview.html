@@ -1,204 +1,262 @@
 {% extends "base.html" %}
 
-{% block title %}Admin – Bemandings-overblik{% endblock %}
+{% block title %}Admin – Bemanding{% endblock %}
 {% block body_class %}admin-wide{% endblock %}
 
 {% block extra_head %}
 <style>
-  .page-top{
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .page-title{ margin:0; }
-  .subtitle{ color: var(--text-muted); margin-top: 4px; }
-
-  .btn-row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  .btn-small{ padding: 7px 12px; font-size: 13px; }
+  .page-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .page-title{margin:0;}
+  .subtitle{color:var(--text-muted);margin-top:4px;}
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .btn-small{padding:7px 12px;font-size:13px;}
 
   .pill{
-    display:inline-flex;
-    align-items:center;
-    gap:8px;
-    padding: 4px 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    border: 1px solid rgba(255,255,255,0.12);
-    background: rgba(255,255,255,0.04);
-    white-space: nowrap;
+    display:inline-flex;align-items:center;gap:8px;
+    padding:4px 10px;border-radius:999px;font-size:12px;
+    border:1px solid rgba(255,255,255,0.12);
+    background:rgba(255,255,255,0.04);
+    white-space:nowrap;
   }
-  .pill.ok { border-color: rgba(48,199,135,0.35); background: rgba(48,199,135,0.10); }
-  .pill.warn { border-color: rgba(255,213,105,0.35); background: rgba(255,213,105,0.10); }
-  .pill.bad { border-color: rgba(255,75,75,0.35); background: rgba(255,75,75,0.10); }
+  .pill.ok{border-color:rgba(48,199,135,0.35);background:rgba(48,199,135,0.10);}
+  .pill.warn{border-color:rgba(255,213,105,0.35);background:rgba(255,213,105,0.10);}
+  .pill.bad{border-color:rgba(255,75,75,0.35);background:rgba(255,75,75,0.10);}
 
   .table-wrap{
     overflow:auto;
-    border-radius: 14px;
-    border: 1px solid rgba(255,255,255,0.10);
-    background: rgba(0,0,0,0.15);
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,0.10);
+    background:rgba(0,0,0,0.15);
   }
 
-  /* ✅ Stop “børnetabeller” + hold det læsbart */
-  table{
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 0;
-    table-layout: auto;
-  }
-  th, td{
-    padding: 10px 10px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-    font-size: 14px;
-    white-space: normal;
-    word-break: break-word;
-    vertical-align: top;
-  }
+  table{width:100%;border-collapse:collapse;min-width:1100px;}
+  th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,0.08);font-size:14px;vertical-align:top;}
   th{
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: rgba(25,25,25,0.95);
-    color: var(--text-muted);
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    position:sticky;
+    top:0;
+    z-index:3;
+    background:rgba(25,25,25,0.97);
+    color:var(--text-muted);
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    white-space:nowrap;
   }
-  tr:hover td{ background: rgba(255,255,255,0.03); }
+  tr:hover td{background:rgba(255,255,255,0.03);}
 
-  .nowrap{ white-space: nowrap; }
-  .cell-center{ text-align:center; }
+  .names-col{min-width:520px;}
+  .muted{color:var(--text-muted);}
+  .small{font-size:12px;}
+  .nowrap{white-space:nowrap;}
+  .right{display:flex;justify-content:flex-end;}
 
-  .names-list{
-    margin: 0;
-    padding-left: 18px;
+  .name-list{margin:0;padding-left:18px;}
+  .name-list li{margin:4px 0;}
+  .name-line{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;}
+
+  .tag-mini{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:2px 8px;border-radius:999px;
+    border:1px solid rgba(255,255,255,0.14);
+    background:rgba(255,255,255,0.04);
+    font-size:11px;
+    white-space:nowrap;
   }
-  .names-list li{
-    margin: 0 0 4px 0;
+  .tag-mini.ok{border-color:rgba(48,199,135,0.35);background:rgba(48,199,135,0.10);}
+  .tag-mini.warn{border-color:rgba(255,213,105,0.35);background:rgba(255,213,105,0.10);}
+  .tag-mini.bad{border-color:rgba(255,75,75,0.35);background:rgba(255,75,75,0.10);}
+
+  /* Bonus: sticky første kolonne (dato) */
+  .sticky-col{
+    position:sticky;
+    left:0;
+    z-index:2;
+    background:rgba(15,15,15,0.97);
+    box-shadow: 10px 0 18px rgba(0,0,0,0.25);
+  }
+  thead .sticky-col{
+    z-index:4;
+    background:rgba(25,25,25,0.97);
   }
 
-  .filter-row{
-    display:flex;
-    align-items:flex-end;
-    justify-content:space-between;
-    gap: 10px;
-    flex-wrap: wrap;
+  /* Admin note styling */
+  .admin-note{
+    margin-top:8px;
+    padding:8px 10px;
+    border-radius:12px;
+    border:1px solid rgba(255,213,105,0.22);
+    background:rgba(255,213,105,0.08);
+    color: rgba(255,255,255,0.92);
   }
-  .filter-row .search{
-    min-width: 260px;
+
+  /* =========================
+     MOBIL FIX (kun små skærme)
+     Desktop forbliver identisk
+     ========================= */
+  @media (max-width: 900px){
+    /* Top: knapper pænt på mobil */
+    .btn-row{width:100%;}
+    .btn-row a{flex:1 1 auto;justify-content:center;}
+
+    /* Tabel: hellere scroll end wrap-lasagne */
+    .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+    table{min-width:980px;} /* lidt mindre end 1100, men stadig læsbart */
+
+    th,td{
+      white-space:nowrap;
+      word-break:normal;
+    }
+
+    /* Sticky first col kan føles som en bug på telefon -> slå fra på mobil */
+    .sticky-col{
+      position: static;
+      left: auto;
+      z-index: auto;
+      background: transparent;
+      box-shadow: none;
+    }
+    thead .sticky-col{
+      position: sticky; /* header må stadig være sticky */
+      top: 0;
+      z-index: 3;
+      background: rgba(25,25,25,0.97);
+    }
+
+    /* Navne-kolonne må ikke dominere hele scrollet */
+    .names-col{min-width:420px;}
+
+    /* Gør status-tags lidt mindre på mobil */
+    .tag-mini{font-size:10.5px;padding:2px 7px;}
+    .pill{font-size:11px;padding:4px 9px;}
+  }
+
+  @media (max-width: 600px){
+    /* Lidt mere luft så det ikke føles presset */
+    th,td{padding:9px;}
+    .name-list{padding-left:16px;}
+    .admin-note{padding:8px 9px;}
   }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<!-- TOP CARD -->
 <div class="card">
   <div class="page-top">
     <div>
-      <h1 class="page-title">Bemandings-overblik – kommende vagter</h1>
-      <div class="subtitle">Hurtigt overblik: behov vs. godkendte + hvem der er sat på</div>
+      <h1 class="page-title">Bemanding</h1>
+      <div class="subtitle">Klik “Åbn” for mødetid / godkend / afvis / fri</div>
     </div>
 
     <div class="btn-row">
       <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">← Tilbage</a>
-      <a href="{{ url_for('admin_actions') }}" class="btn btn-primary">Indbakke</a>
-    </div>
-  </div>
-
-  <hr style="border:none; border-top:1px solid rgba(255,255,255,0.10); margin:14px 0;">
-
-  <div class="filter-row">
-    <div class="btn-row" style="gap:8px;">
-      <span class="pill">📌 Kommende vagter</span>
-      <span class="pill {% if overview and overview|length > 0 %}ok{% else %}warn{% endif %}">
-        📅 {{ overview|length if overview else 0 }} stk
-      </span>
-    </div>
-
-    <div class="search">
-      <label for="overviewFilter" class="helper-text" style="display:block; margin-bottom:6px;">
-        Søg (dato, sted, beskrivelse, navn…)
-      </label>
-      <input id="overviewFilter" type="text" placeholder="Søg i bemanding…">
+      <a href="{{ url_for('admin_actions') }}" class="btn btn-secondary">Indbakke</a>
     </div>
   </div>
 </div>
 
-{% if not overview %}
-  <div class="card">
-    <div class="card-header">
-      <div>
-        <h2 style="margin:0;">Ingen kommende aktive vagter</h2>
-        <div class="card-subtitle">Der er ikke oprettet (eller aktiveret) vagter fra i dag og frem.</div>
-      </div>
-    </div>
-  </div>
-{% else %}
-
-  <!-- TABLE CARD -->
-  <div class="card">
-    <div class="card-header">
-      <div>
-        <h2 style="margin:0;">Kommende vagter</h2>
-        <div class="card-subtitle">Klik “Åbn” for at sætte mødetid / godkende / rette bemanding</div>
-      </div>
-    </div>
-
+<div class="card" style="margin-top:14px;">
+  {% if not overview %}
+    <p class="muted">Ingen kommende arrangementer.</p>
+  {% else %}
     <div class="table-wrap">
-      <table id="overviewTable">
+      <table>
         <thead>
           <tr>
-            <th class="nowrap">Dato</th>
-            <th class="nowrap">Start</th>
+            <th class="sticky-col">Dato</th>
+            <th>Start</th>
             <th>Sted</th>
             <th>Beskrivelse</th>
-            <th class="cell-center nowrap">Behov</th>
-            <th class="cell-center nowrap">Godkendte</th>
-            <th>Navne på godkendte</th>
-            <th class="nowrap">Handling</th>
+            <th class="nowrap">Behov</th>
+            <th class="nowrap">Godkendte</th>
+            <th class="names-col">Navne på tilmeldte</th>
+            <th class="right">Handling</th>
           </tr>
         </thead>
         <tbody>
           {% for item in overview %}
             {% set shift = item.shift %}
-            {% set approved = item.approved_signups %}
-            {% set remaining = (shift.needed or 0) - (approved|length) %}
+            {% set need = shift.needed %}
+            {% set appr = item.counts.approved if item.counts else (item.approved_signups|length) %}
+            {% set remaining = need - appr %}
 
             <tr>
-              <td class="nowrap">{{ shift.date|dkdate }}</td>
+              <td class="nowrap sticky-col">{{ shift.date|dkdate }}</td>
               <td class="nowrap">{{ shift.time }}</td>
               <td>{{ shift.location }}</td>
-              <td>{{ shift.description or "-" }}</td>
 
-              <td class="cell-center nowrap">{{ shift.needed }}</td>
+              <td>
+                <strong>{{ shift.description or "Vagt" }}</strong>
 
-              <td class="cell-center nowrap">
-                {% if approved|length >= (shift.needed or 0) %}
-                  <span class="pill ok">✅ {{ approved|length }}</span>
-                {% elif approved|length > 0 %}
-                  <span class="pill warn">⚠️ {{ approved|length }}</span>
+                {% if shift.customer or shift.event_type %}
+                  <div class="small muted" style="margin-top:4px;">
+                    {% if shift.customer %}{{ shift.customer }}{% endif %}
+                    {% if shift.customer and shift.event_type %} · {% endif %}
+                    {% if shift.event_type %}{{ shift.event_type }}{% endif %}
+                  </div>
+                {% endif %}
+
+                {% if shift.admin_note %}
+                  <div class="admin-note small">
+                    <strong>Note:</strong> {{ shift.admin_note }}
+                  </div>
+                {% endif %}
+              </td>
+
+              <td class="nowrap">{{ need }}</td>
+
+              <td class="nowrap">
+                {% if appr >= need %}
+                  <span class="pill ok">✅ {{ appr }}</span>
+                {% elif appr > 0 %}
+                  <span class="pill warn">⚠️ {{ appr }}</span>
                 {% else %}
                   <span class="pill bad">⛔ 0</span>
                 {% endif %}
               </td>
 
               <td>
-                {% if approved %}
-                  <ul class="names-list">
-                    {% for s in approved %}
+                {% if item.signups and item.signups|length > 0 %}
+                  <ul class="name-list">
+                    {% for s in item.signups %}
                       <li>
-                        <strong>{{ s.name }}</strong>
-                        {% if s.phone %} ({{ s.phone }}){% endif %}
-                        {% if s.meet_time %}
-                          <span class="helper-text">– møder kl. {{ s.meet_time }}</span>
-                        {% endif %}
+                        <div class="name-line">
+                          {% if s.status == "APPROVED" %}
+                            <span class="tag-mini ok">✅ Godkendt</span>
+                          {% elif s.status == "REQUESTED" %}
+                            <span class="tag-mini warn">⏳ Afventer</span>
+                          {% elif s.status == "RELEASE_REQUESTED" %}
+                            <span class="tag-mini bad">🚪 Ønsker fri</span>
+                          {% else %}
+                            <span class="tag-mini">{{ s.status }}</span>
+                          {% endif %}
+
+                          <strong>{{ s.name }}</strong>
+                          <span class="muted">({{ s.phone }})</span>
+
+                          {% if s.meet_time %}
+                            <span class="muted">– møder {{ s.meet_time }}</span>
+                          {% endif %}
+
+                          {# Availability: fra/til/range #}
+                          {% if s.available_from and s.available_until %}
+                            <span class="muted">– kan {{ s.available_from }}–{{ s.available_until }}</span>
+                          {% elif s.available_from %}
+                            <span class="muted">– kan fra {{ s.available_from }}</span>
+                          {% elif s.available_until %}
+                            <span class="muted">– kan til {{ s.available_until }}</span>
+                          {% endif %}
+
+                          {# Freelancer note (valgfri, hvis du sender den med) #}
+                          {% if s.freelancer_note %}
+                            <span class="muted">– note: “{{ s.freelancer_note }}”</span>
+                          {% endif %}
+                        </div>
                       </li>
                     {% endfor %}
                   </ul>
                 {% else %}
-                  <em class="helper-text">Ingen godkendte endnu</em>
+                  <span class="muted"><em>Ingen tilmeldte endnu</em></span>
                 {% endif %}
 
                 <div style="margin-top:8px;">
@@ -210,34 +268,16 @@
                 </div>
               </td>
 
-              <td class="nowrap">
-                <a class="btn btn-primary btn-small" href="{{ url_for('admin_shift_detail', shift_id=shift.id) }}">Åbn</a>
+              <td class="right nowrap">
+                <!-- ✅ RET: link skal gå til GET-formen, ikke POST-route -->
+                <a href="{{ url_for('admin_edit_shift_form', shift_id=shift.id) }}" class="btn btn-primary btn-small">Åbn</a>
               </td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-
-  </div>
-
-{% endif %}
-
-<script>
-(function(){
-  const input = document.getElementById("overviewFilter");
-  const table = document.getElementById("overviewTable");
-  if (!input || !table) return;
-
-  const rows = Array.from(table.querySelectorAll("tbody tr"));
-  input.addEventListener("input", () => {
-    const q = input.value.toLowerCase().trim();
-    rows.forEach(r => {
-      const txt = r.innerText.toLowerCase();
-      r.style.display = txt.includes(q) ? "" : "none";
-    });
-  });
-})();
-</script>
+  {% endif %}
+</div>
 
 {% endblock %}

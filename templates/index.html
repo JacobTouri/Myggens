@@ -1,149 +1,114 @@
 {% extends "base.html" %}
 
-{% block title %}Vagter hos Myggen's{% endblock %}
+{% block title %}Eventkalender – Myggen's{% endblock %}
 
 {% block content %}
-
-<style>
-  /* Liste-layout: ét tydeligt card pr. vagt */
-  .shift-list{
-    display:flex;
-    flex-direction:column;
-    gap: 12px; /* ✅ separation mellem arrangementer */
-    margin-top: 12px;
-  }
-
-  .shift-card{
-    padding: 14px 16px;
-    border-radius: 16px;
-    border: 1px solid rgba(255,255,255,0.10);
-    background: rgba(0,0,0,0.18);
-    transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
-  }
-
-  .shift-card:hover{
-    transform: translateY(-1px);
-    border-color: rgba(255,255,255,0.16);
-    background: rgba(0,0,0,0.22);
-  }
-
-  .shift-title-row{
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap: 10px;
-    flex-wrap:wrap;
-  }
-
-  .shift-date{
-    font-weight: 800;
-    letter-spacing: -0.01em;
-    font-size: 16px;
-    margin-bottom: 2px;
-  }
-
-  .shift-meta{
-    color: var(--text-muted);
-    font-size: 13px;
-  }
-
-  .shift-desc{
-    margin-top: 8px;
-    font-weight: 700;
-    font-size: 16px;
-  }
-
-  .shift-status-text{
-    margin-top: 8px;
-    color: var(--text-muted);
-  }
-
-  .shift-actions{
-    margin-top: 12px;
-    display:flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    align-items:center;
-  }
-
-  /* Sæt “mangler” / “fyldt” som pille, men behold din eksisterende tag-pill styling */
-  .tag-pill.ok{
-    border-color: rgba(58,203,106,0.6);
-    background: rgba(58,203,106,0.18);
-    color: #9ff2b7;
-  }
-</style>
-
 <div class="layout-two-column">
-  <!-- Venstre: vagtoversigt -->
+  <!-- Main -->
   <section class="card card-soft">
     <div class="card-header">
-      <h1 style="margin:0;">Eventkalender</h1>
+      <div>
+        <h1 style="margin:0;">Eventkalender</h1>
+        <div class="card-subtitle">Tryk på et event for at melde dig til.</div>
+      </div>
+
+      <!-- ✅ NYT: Mogens-knap -->
+      <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+        <a href="{{ url_for('vagtoversigt_mogens') }}" class="btn btn-secondary">📊 Mogensknappen </a>
+      </div>
     </div>
 
-    <p style="margin-top:0;">
-      Tryk på et event for at melde dig til.  
-    </p>
-
-    <div id="shift-list" class="shift-list">
+    <div class="shift-list" style="margin-top:12px;">
       {% for shift in shifts %}
-        {% set remaining = shift.needed - shift.approved %}
+        {% set approved_count = shift.approved or 0 %}
+        {% set remaining = shift.needed - approved_count %}
 
-        <!-- ✅ Nu er hver vagt et rigtigt card -->
-        <div class="shift-card" data-shift-id="{{ shift.id }}">
-          <div class="shift-title-row">
+        <!-- Kort -->
+        <div class="card"
+             style="margin-top:12px;"
+             data-shift-id="{{ shift.id }}"
+             data-cancel-base="{{ url_for('freelancer_frameld', signup_id=0) }}">
+
+          <!-- Top row: dato/tid/loc + badge + fremeld-slot -->
+          <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;">
             <div>
-              <div class="shift-date">{{ shift.date|dkdate }}</div>
-              <div class="shift-meta">
-                Kl. {{ shift.time }} – {{ shift.location }}
-              </div>
+              <div style="font-weight:700; font-size:16px;">{{ shift.date|dkdate }}</div>
+              <div class="helper-text">Kl. {{ shift.time }} – {{ shift.location }}</div>
             </div>
 
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+              {% if remaining > 0 %}
+                <div class="tag-pill">MANGLER {{ remaining }}</div>
+              {% else %}
+                <div class="tag-pill" style="border-color: rgba(58,203,106,0.6); background: rgba(58,203,106,0.12); color:#9ff2b7;">
+                  HOLDET ER FYLDT
+                </div>
+              {% endif %}
+
+              <!-- JS indsætter evt. fremeld-knap her -->
+              <div class="cancel-slot"></div>
+            </div>
+          </div>
+
+          <!-- Titel/tekst -->
+          <div style="margin-top:10px;">
+            <div style="font-weight:700; font-size:18px;">
+              {{ shift.description or "Vagt" }}
+            </div>
+
+            <!-- Admin note (synlig på eventkalenderen) -->
+            {% if shift.admin_note and shift.admin_note|trim %}
+              <div style="
+                margin-top:8px;
+                padding:8px 10px;
+                border-radius:12px;
+                border:1px solid rgba(255,213,105,0.22);
+                background:rgba(255,213,105,0.08);
+                color: rgba(255,255,255,0.92);
+              ">
+                <div class="helper-text" style="margin:0; opacity:0.95;">
+                  <strong>Note:</strong> {{ shift.admin_note }}
+                </div>
+              </div>
+            {% endif %}
+
+            <!-- Statuslinje: JS kan overskrive denne -->
             {% if remaining > 0 %}
-              <div class="tag-pill">Mangler {{ remaining }}</div>
+              <div class="shift-status-text" style="margin-top:8px; opacity:0.9;">
+                Mangler: {{ remaining }} person(er)
+              </div>
             {% else %}
-              <div class="tag-pill ok">Holdet er fyldt</div>
+              <div class="shift-status-text" style="margin-top:8px; opacity:0.9;">
+                Holdet er fyldt ✅
+              </div>
             {% endif %}
           </div>
 
-          {% if shift.description %}
-            <div class="shift-desc">{{ shift.description }}</div>
-          {% endif %}
-
-          {% if remaining > 0 %}
-            <p class="shift-status-text">
-              Mangler: {{ remaining }} person(er)
-            </p>
-
-            <div class="shift-actions signup-area">
-              <form method="get" action="/tilmeld/{{ shift.id }}" style="margin:0;">
-                <button type="submit" class="btn btn-primary">
-                  Meld dig på
-                </button>
+          <!-- Actions -->
+          <div class="signup-area" style="margin-top:12px;">
+            {% if remaining > 0 %}
+              <form method="get" action="{{ url_for('tilmeld', shift_id=shift.id) }}" style="margin:0;">
+                <button type="submit" class="btn btn-primary">Meld dig på</button>
               </form>
-            </div>
-          {% else %}
-            <p class="shift-status-text">Holdet er fyldt ✅</p>
-            <div class="shift-actions signup-area"></div>
-          {% endif %}
+            {% endif %}
+          </div>
         </div>
       {% endfor %}
     </div>
   </section>
 
-  <!-- Højre: info/CTA -->
+  <!-- Right panel -->
   <aside class="hero-panel">
     <div class="hero-bg-rotator"></div>
     <div class="hero-panel-inner">
       <div>
         <div class="hero-heading">Sådan fungerer vagterne</div>
-        <p class="hero-text">
+        <p class="hero-text" style="margin-top:10px;">
           1. Find en vagt der passer dig.<br>
           2. Meld dig på.<br>
           3. Martin godkender dig.<br>
           4. Se dine vagter og log dine timer under <em>Mine vagter</em>.
         </p>
-      </div>
       </div>
     </div>
   </aside>
@@ -152,59 +117,67 @@
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   let phone = null;
-  try {
-    phone = localStorage.getItem("myggen_phone");
-  } catch (e) {
-    console.log("localStorage ikke tilgængelig:", e);
-  }
+  try { phone = localStorage.getItem("myggen_phone"); } catch (e) {}
   if (!phone) return;
 
   fetch("/api/signups-for-phone?phone=" + encodeURIComponent(phone))
-    .then(res => res.json())
+    .then(r => r.json())
     .then(data => {
-      if (!data || !data.signups) return;
+      if (!data || !Array.isArray(data.signups)) return;
 
-      const signupsByShift = {};
+      const byShift = {};
       data.signups.forEach(s => {
-        if (s.status === "CANCELLED_BY_ADMIN") return;
-        signupsByShift[s.shift_id] = s.status;
+        byShift[String(s.shift_id)] = { status: s.status, signup_id: s.signup_id };
       });
 
-      document.querySelectorAll(".shift-card").forEach(card => {
-        const shiftId = parseInt(card.getAttribute("data-shift-id"), 10);
-        const status = signupsByShift[shiftId];
-        if (!status) return;
+      document.querySelectorAll("[data-shift-id]").forEach(card => {
+        const shiftId = card.getAttribute("data-shift-id");
+        const entry = byShift[String(shiftId)];
+        if (!entry) return;
 
-        const statusTextEl = card.querySelector(".shift-status-text");
+        const status = entry.status;
+        const signupId = entry.signup_id;
+
+        const statusText = card.querySelector(".shift-status-text");
         const signupArea = card.querySelector(".signup-area");
+        const cancelSlot = card.querySelector(".cancel-slot");
 
-        let extraText = "";
+        const cancelBase = card.getAttribute("data-cancel-base") || "";
+
+        function buildCancelUrl(base, id) {
+          if (!base) return "";
+          return base.replace(/0$/, String(id));
+        }
+
+        if (status === "REQUESTED" || status === "APPROVED" || status === "RELEASE_REQUESTED") {
+          if (signupArea) signupArea.innerHTML = "";
+        }
+
         if (status === "REQUESTED") {
-          extraText = "Du er tilmeldt – afventer godkendelse fra Martin.";
+          if (statusText) statusText.textContent = "Du er tilmeldt – afventer godkendelse fra Martin.";
+          if (cancelSlot && signupId) {
+            const cancelUrl = buildCancelUrl(cancelBase, signupId);
+            cancelSlot.innerHTML = `
+              <form method="post"
+                    action="${cancelUrl}"
+                    onsubmit="return confirm('Er du sikker på at du vil fremelde dig denne vagt?');"
+                    style="margin:0;">
+                <button type="submit" class="btn btn-danger" style="padding:10px 14px; border-radius:14px;">
+                  Fremeld
+                </button>
+              </form>
+            `;
+          }
         } else if (status === "APPROVED") {
-          extraText = "Du er sat på denne vagt.";
+          if (statusText) statusText.textContent = "Du er sat på denne vagt.";
+          if (cancelSlot) cancelSlot.innerHTML = "";
         } else if (status === "RELEASE_REQUESTED") {
-          extraText = "Du er på vagten, men har bedt om fri.";
-        } else {
-          return;
-        }
-
-        if (statusTextEl) {
-          statusTextEl.textContent = extraText;
-        } else {
-          const p = document.createElement("p");
-          p.className = "shift-status-text";
-          p.textContent = extraText;
-          card.appendChild(p);
-        }
-
-        if (signupArea) {
-          signupArea.innerHTML = ""; // fjern "Meld dig på"-knap
+          if (statusText) statusText.textContent = "Du er på vagten, men har bedt om fri.";
+          if (cancelSlot) cancelSlot.innerHTML = "";
         }
       });
     })
-    .catch(err => console.log("Fejl ved hentning af tilmeldinger:", err));
+    .catch(() => {});
 });
 </script>
-
 {% endblock %}

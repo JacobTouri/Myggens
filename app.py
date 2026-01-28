@@ -176,10 +176,16 @@ def vagtoversigt():
     future_shifts = [s for s in shifts if s["date"] >= today_str]
     return render_template("index.html", shifts=future_shifts)
 
+@app.get("/vagtoversigt/mogens")
+@freelancer_required
+def vagtoversigt_mogens():
+    shifts = database.get_all_shifts()  # ✅ VIGTIGT: med ()
+    return render_template("index_mogens.html", shifts=shifts)
 
 
 
-@app.route("/tilmeld/<int:shift_id>", methods=["GET", "POST"])  
+
+@app.route("/tilmeld/<int:shift_id>", methods=["GET", "POST"])
 @freelancer_required
 def tilmeld(shift_id):
     shift = database.get_shift(shift_id)
@@ -191,44 +197,108 @@ def tilmeld(shift_id):
 
     if request.method == "POST":
         name = request.form.get("name", "").strip()
-        phone = request.form.get("phone", "").strip()
-        availability_type = request.form.get("availability_type", "any")
-        available_from = request.form.get("available_from", "").strip()  # 'HH:MM'
+        phone_raw = request.form.get("phone", "").strip()
 
+        # Note til admin (valgfri)
+        freelancer_note = request.form.get("freelancer_note", "").strip()
+        freelancer_note_value = freelancer_note if freelancer_note else None
+
+        availability_type = request.form.get("availability_type", "any").strip()
+        available_from = request.form.get("available_from", "").strip()    # 'HH:MM' eller ""
+        available_until = request.form.get("available_until", "").strip()  # 'HH:MM' eller ""
+
+        # Normalisér telefon (fjern mellemrum)
+        phone = phone_raw.replace(" ", "")
+
+        # Basic validering
         if not name or not phone:
             error = "Udfyld både navn og telefon."
-        elif not phone.replace(" ", "").isdigit() or len(phone.replace(" ", "")) < 6:
+        elif not phone.isdigit() or len(phone) < 6:
             error = "Tjek dit telefonnummer – det ser forkert ud."
-        elif availability_type == "from" and not available_from:
-            error = "Vælg et tidspunkt, hvis du ikke kan hele dagen."
         else:
-            if availability_type != "from":
-                available_from_value = None
-            else:
-                available_from_value = available_from  # fx '14:00'
+            # Normalisér til None hvis tom
+            available_from_value = available_from if available_from else None
+            available_until_value = available_until if available_until else None
 
-            signup_id = database.create_signup(
-                shift_id,
-                name,
-                phone,
-                STATUS_REQUESTED,
-                available_from=available_from_value,
-            )
-            if signup_id is None:
-                error = "Du er allerede tilmeldt denne vagt."
+            # Availability-validering
+            if availability_type == "any":
+                available_from_value = None
+                available_until_value = None
+
+            elif availability_type == "from":
+                available_until_value = None
+                if not available_from_value:
+                    error = "Vælg et tidspunkt, hvis du ikke kan hele dagen."
+
+            elif availability_type == "until":
+                available_from_value = None
+                if not available_until_value:
+                    error = "Vælg et tidspunkt, hvis du kun kan til et bestemt tidspunkt."
+
+            elif availability_type == "range":
+                if not available_from_value or not available_until_value:
+                    error = "Vælg både start og slut, hvis du vælger et tidsrum."
+                else:
+                    # 'HH:MM' kan sammenlignes som strings
+                    if available_from_value >= available_until_value:
+                        error = "Sluttid skal være efter starttid."
+
             else:
-                print(
-                    "NY TILMELDING:",
-                    signup_id,
-                    shift_id,
-                    name,
-                    phone,
-                    available_from_value,
+                # Ukendt type → fallback
+                available_from_value = None
+                available_until_value = None
+
+            if not error:
+                signup_id = database.create_signup(
+                    shift_id=shift_id,
+                    name=name,
+                    phone=phone,
+                    initial_status=STATUS_REQUESTED,
+                    available_from=available_from_value,
+                    available_until=available_until_value,
+                    freelancer_note=freelancer_note_value,
                 )
-                message = "Din tilmelding er modtaget!"
+
+                if signup_id is None:
+                    error = "Du er allerede tilmeldt denne vagt."
+                else:
+                    print(
+                        "NY TILMELDING:",
+                        signup_id,
+                        shift_id,
+                        name,
+                        phone,
+                        availability_type,
+                        available_from_value,
+                        available_until_value,
+                        freelancer_note_value,
+                    )
+                    message = "Din tilmelding er modtaget!"
 
     return render_template("tilmeld.html", shift=shift, message=message, error=error)
 
+
+@app.route("/freelancer/frameld/<int:signup_id>", methods=["POST"])
+@freelancer_required
+def freelancer_frameld(signup_id: int):
+    phone = (session.get("freelancer_phone") or "").strip()
+    if not phone:
+        abort(403)
+
+    signup = database.get_signup_by_id(signup_id)
+    if signup is None:
+        abort(404)
+
+    # ownership check
+    if str(signup.get("phone") or "").strip() != phone:
+        abort(403)
+
+    ok = database.cancel_signup_request(signup_id)
+    if ok:
+        flash("Du er frameldt vagten.", "success")
+    else:
+        flash("Kan ikke framelde: tilmeldingen er allerede behandlet.", "error")
+    return redirect(url_for("mine_vagter"))
 
 @app.route("/freelancer/login", methods=["GET", "POST"])
 def freelancer_login():
@@ -255,6 +325,81 @@ def freelancer_login():
             return redirect(url_for("vagtoversigt"))
 
     return render_template("freelancer_login.html", error=error)
+
+def _parse_hhmm(value: str) -> int | None:
+    """Returnerer minutter siden midnat for 'HH:MM' ellers None."""
+    if not value:
+        return None
+    value = value.strip()
+    try:
+        parts = value.split(":")
+        if len(parts) != 2:
+            return None
+        h = int(parts[0])
+        m = int(parts[1])
+        if h < 0 or h > 23 or m < 0 or m > 59:
+            return None
+        return h * 60 + m
+    except ValueError:
+        return None
+
+
+@app.route("/ekstravagt", methods=["GET", "POST"])
+@freelancer_required
+def freelancer_extra_shift():
+    message = None
+    error = None
+
+    if request.method == "POST":
+        name = (request.form.get("name") or "").strip()
+        phone = (request.form.get("phone") or "").strip()
+
+        date_str = (request.form.get("date") or "").strip()          # forvent: YYYY-MM-DD
+        work_start = (request.form.get("work_start") or "").strip()  # HH:MM
+        work_end = (request.form.get("work_end") or "").strip()      # HH:MM
+        note = (request.form.get("note") or "").strip()
+
+        # ---- basic validation ----
+        if not name or not phone:
+            error = "Udfyld navn og telefonnummer."
+        elif not phone.replace(" ", "").isdigit() or len(phone.replace(" ", "")) < 6:
+            error = "Tjek telefonnummer – det ser forkert ud."
+        else:
+            # valider datoformat
+            try:
+                datetime.strptime(date_str, "%Y-%m-%d")
+            except ValueError:
+                error = "Dato skal være i formatet YYYY-MM-DD."
+
+        # valider tid + beregn work_hours
+        if not error:
+            start_min = _parse_hhmm(work_start)
+            end_min = _parse_hhmm(work_end)
+
+            if start_min is None or end_min is None:
+                error = "Start og slut skal være i formatet HH:MM."
+            elif end_min <= start_min:
+                error = "Sluttid skal være efter starttid."
+            else:
+                work_hours = round((end_min - start_min) / 60.0, 2)
+                if work_hours <= 0 or work_hours > 24:
+                    error = "Timer ser ikke rigtige ud."
+
+        if not error:
+            # ---- save ----
+            database.create_extra_shift(
+                name=name,
+                phone=phone,
+                date_str=date_str,
+                work_start=work_start,
+                work_end=work_end,
+                work_hours=work_hours,
+                note=note,
+            )
+            message = "Ekstravagt sendt til admin ✅"
+
+    return render_template("extra_shift.html", message=message, error=error)
+
 
 
 @app.route("/freelancer/logout")
@@ -535,6 +680,27 @@ def anmod_fri(signup_id):
 
     return redirect(url_for("mine_vagter", phone=phone))
 
+@app.post("/annuller-tilmelding/<int:signup_id>")
+@freelancer_required
+def annuller_tilmelding(signup_id):
+    signup = database.get_signup(signup_id)
+    if not signup:
+        abort(404)
+
+    # Sikkerhed: kun ejeren af tilmeldingen må annullere
+    session_phone = session.get("freelancer_phone")
+    if not session_phone or signup["phone"] != session_phone:
+        abort(403)
+
+    # Kun hvis den stadig afventer
+    if signup["status"] != STATUS_REQUESTED:
+        flash("Tilmeldingen kan ikke annulleres, fordi den allerede er behandlet.")
+        return redirect(url_for("mine_vagter", phone=session_phone))
+
+    database.delete_signup(signup_id)
+    flash("Tilmeldingen er annulleret.")
+    return redirect(url_for("mine_vagter", phone=session_phone))
+
 
 @app.get("/api/signups-for-phone")
 def api_signups_for_phone():
@@ -544,17 +710,19 @@ def api_signups_for_phone():
         return jsonify({"signups": []})
 
     signups = database.get_signups_by_phone(phone)
-    # Vi reducerer til: shift_id -> status
-    # CANCELLED_BY_ADMIN behandles som "ingen tilmelding"
+
+    # Returnér også signup_id så vi kan fremelde direkte fra oversigten
     data = [
         {
             "shift_id": item["shift"]["id"],
+            "signup_id": item["signup_id"],
             "status": item["status"],
         }
         for item in signups
         if item["status"] != STATUS_CANCELLED_BY_ADMIN
     ]
     return jsonify({"signups": data})
+
 
 
 
@@ -692,6 +860,9 @@ def admin_edit_shift(shift_id):
     guest_count_raw = request.form.get("guest_count", "").strip()
     required_staff_raw = request.form.get("required_staff", "").strip()
 
+    # ✅ NYT: admin note (vises til freelancere)
+    admin_note = (request.form.get("admin_note") or "").strip() or None
+
     # Konverterer fx "11-12-2025" -> "2025-12-11"
     date_iso = parse_danish_date(raw_date)
 
@@ -722,12 +893,18 @@ def admin_edit_shift(shift_id):
         customer or None,
         event_type or None,
         guest_count,
+        admin_note, 
     )
 
     flash("Vagten er opdateret.")
-    # ⬇⬇ vigtig ændring: tilbage til selve vagtens admin-detaljeview
     return redirect(url_for("admin_shift_detail", shift_id=shift_id))
 
+@app.route("/admin/shift/<int:shift_id>/note", methods=["POST"])
+@admin_required
+def admin_set_shift_note(shift_id: int):
+    note = request.form.get("admin_note", "").strip()
+    database.set_shift_admin_note(shift_id, note if note else None)
+    return redirect(url_for("admin_overview") + f"#shift-{shift_id}")
 
 @app.route("/admin/shift/<int:shift_id>", methods=["GET"])
 @admin_required
@@ -753,81 +930,106 @@ def admin_shift_detail(shift_id):
 @app.route("/admin/overblik")
 @admin_required
 def admin_overview():
-    # Hent alle vagter til admin
     all_shifts = database.get_all_shifts_admin()
     today_str = date.today().isoformat()
 
-    # Kun aktive vagter fra i dag og frem
     upcoming_shifts = [
         s for s in all_shifts
-        if s["is_active"] == 1 and s["date"] >= today_str
+        if s.get("is_active") == 1 and s.get("date") and s["date"] >= today_str
     ]
 
     overview = []
     for shift in upcoming_shifts:
-        # Hent alle tilmeldinger til vagten
         signups = database.get_signups_for_shift(shift["id"])
-        # Filtrér ned til dem der er godkendt
-        approved_signups = [
-            s for s in signups
-            if s["status"] == STATUS_APPROVED
-        ]
-        overview.append(
-            {
-                "shift": shift,
-                "approved_signups": approved_signups,
+
+        approved_signups = [s for s in signups if s["status"] == STATUS_APPROVED]
+        requested_signups = [s for s in signups if s["status"] == STATUS_REQUESTED]
+        release_requested_signups = [s for s in signups if s["status"] == STATUS_RELEASE_REQUESTED]
+
+        overview.append({
+            "shift": shift,
+            "signups": signups,  # NYT: alle tilmeldinger
+            "approved_signups": approved_signups,  # beholdes for bagudkompabilitet
+            "counts": {
+                "total": len(signups),
+                "approved": len(approved_signups),
+                "requested": len(requested_signups),
+                "release_requested": len(release_requested_signups),
             }
-        )
+        })
+
+    # Sortér efter dato/tid så den ikke virker random
+    overview.sort(key=lambda x: (x["shift"].get("date", ""), x["shift"].get("time", "")))
 
     return render_template("admin_overview.html", overview=overview)
 
-@app.route("/admin/timer")
+@app.route("/admin/timer", methods=["GET"])
 @admin_required
 def admin_timer():
-    # Standard: nuværende måned
-    today = date.today()
-    default_year = today.year
-    default_month = today.month
+    now = datetime.now()
 
-    year = request.args.get("year", type=int) or default_year
-    month = request.args.get("month", type=int) or default_month
-    show_paid = request.args.get("show_paid", "0") == "1"
+    # ---- params ----
+    try:
+        year = int(request.args.get("year", now.year))
+    except ValueError:
+        year = now.year
 
-    # Hent alle timer for perioden
-    rows = database.get_hours_for_month(year, month, include_paid=show_paid, include_missing=True)
+    try:
+        month = int(request.args.get("month", now.month))
+    except ValueError:
+        month = now.month
 
-    # Gruper pr. person til pænere UI og sum pr. person
-    people = {}
+    show_paid = request.args.get("show_paid") == "1"
+
+    # dropdown years
+    years = list(range(now.year - 2, now.year + 3))
+
+    # ---- hent rækker (din funktion) ----
+    rows = database.get_hours_for_month(
+        year=year,
+        month=month,
+        include_paid=show_paid,
+        include_missing=True,  # behold hvis du vil se "timer mangler" rækker
+    )
+
+    # ---- group + summer ----
+    people_map = {}
+    grand_total = 0.0
+
     for r in rows:
-        key = (r["person_name"], r["phone"])
-        if key not in people:
-            people[key] = {
-                "name": r["person_name"],
-                "phone": r["phone"],
+        name = (r.get("person_name") or "Ukendt").strip()
+        phone = (r.get("phone") or "").strip()
+        key = f"{name}::{phone}"
+
+        if key not in people_map:
+            people_map[key] = {
+                "name": name,
+                "phone": phone,
                 "rows": [],
                 "total_hours": 0.0,
             }
-        people[key]["rows"].append(r)
-        people[key]["total_hours"] += r["work_hours"] or 0
 
-    people_list = list(people.values())
-    people_list.sort(key=lambda p: p["name"].lower())
+        approved_flag = bool(r.get("hours_approved_by_admin"))
+        work_hours = r.get("work_hours", None)
+        approved_work_hours = r.get("approved_work_hours", None)
 
-    # Samlet sum for måneden
-    total_hours = sum(p["total_hours"] for p in people_list)
+        final_hours = approved_work_hours if approved_flag else work_hours
+        add = float(final_hours) if final_hours is not None else 0.0
 
-    # Brug samme "år-liste"-trick som på freelancer-siden
-    # (eller bare et simpelt interval omkring nu)
-    years = list(range(default_year - 2, default_year + 3))
+        people_map[key]["rows"].append(r)
+        people_map[key]["total_hours"] += add
+        grand_total += add
+
+    people = sorted(people_map.values(), key=lambda p: (p["name"].lower(), p["phone"]))
 
     return render_template(
         "admin_timer.html",
+        people=people,
+        years=years,
         year=year,
         month=month,
-        years=years,
         show_paid=show_paid,
-        people=people_list,
-        total_hours=total_hours,
+        grand_total=grand_total,
     )
 
 @app.get("/admin/historik")
@@ -1039,6 +1241,9 @@ def admin_create_shift():
     guest_count_raw = request.form.get("guest_count", "").strip()
     required_staff_raw = request.form.get("required_staff", "").strip()
 
+    # ✅ NYT: admin note (vises til freelancere)
+    admin_note = (request.form.get("admin_note") or "").strip() or None
+
     # Konverter dato til ISO
     date_iso = parse_danish_date(raw_date)
 
@@ -1069,6 +1274,7 @@ def admin_create_shift():
         customer or None,
         event_type or None,
         guest_count,
+        admin_note,
     )
 
     return redirect(url_for("admin_dashboard"))
@@ -1141,6 +1347,52 @@ def admin_sink_all_archived():
     database.sink_all_archived_shifts()
     flash("Alle arkiverede arrangementer er flyttet til historikken.")
     return redirect(url_for("admin_dashboard"))
+
+
+@app.post("/admin/extra/approve/<int:extra_id>")
+@admin_required
+def admin_extra_approve(extra_id: int):
+    approved = request.form.get("approved_work_hours")
+
+    try:
+        approved = float(approved)
+        if approved < 0 or approved > 24:
+            raise ValueError()
+    except Exception:
+        flash("Ugyldigt antal timer.")
+        return redirect(request.referrer or url_for("admin_timer"))
+
+    database.approve_extra_work_hours(extra_id, approved)
+    flash("Ekstratimer godkendt.")
+    return redirect(request.referrer or url_for("admin_timer"))
+
+
+@app.post("/admin/extra/reject/<int:extra_id>")
+@admin_required
+def admin_extra_reject(extra_id: int):
+    database.reject_extra_shift(extra_id)
+    flash("Ekstravagt afvist.")
+    return redirect(request.referrer or url_for("admin_timer"))
+
+
+@app.post("/admin/extra/mark-paid/<int:extra_id>")
+@admin_required
+def admin_extra_mark_paid(extra_id: int):
+    paid_flag = request.form.get("paid", "1") == "1"
+
+    extra = database.get_extra_shift_by_id(extra_id)
+    if not extra:
+        flash("Kunne ikke finde ekstravagten.")
+        return redirect(request.referrer or url_for("admin_timer"))
+
+    # KRITISK: skal være godkendt først
+    if not extra.get("hours_approved_by_admin"):
+        flash("Godkend timer før afregning.")
+        return redirect(request.referrer or url_for("admin_timer"))
+
+    database.mark_extra_paid(extra_id, paid_flag)
+    flash("Ekstratimer markeret afregnet." if paid_flag else "Ekstratimer markeret ikke-afregnet.")
+    return redirect(request.referrer or url_for("admin_timer"))
 
 
 

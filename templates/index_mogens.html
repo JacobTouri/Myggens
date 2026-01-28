@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Eventkalender (tabel) – Myggen's{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <div>
+      <h1 style="margin:0;">Eventkalender (tabel)</h1>
+      <div class="card-subtitle">Mogens-mode: tabel i stedet for kort.</div>
+    </div>
+
+    <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+      <a href="{{ url_for('vagtoversigt') }}" class="btn btn-secondary">← Tilbage til kort</a>
+    </div>
+  </div>
+
+  <div class="helper-text" style="margin-top:6px;">
+    Tip: Der kan scrolles vandret hvis tabellen er bred (som et rigtigt Excel-mareridt).
+  </div>
+</div>
+
+<div class="card" style="margin-top:14px;">
+  <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center;">
+    <div style="min-width:260px; flex:1;">
+      <input id="mogensFilter" type="text" placeholder="Søg… (dato, sted, beskrivelse, note)" />
+    </div>
+  </div>
+
+  <div class="table-wrap" style="margin-top:12px; overflow:auto; border-radius:14px; border:1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.15);">
+    <table id="mogensTable" style="width:100%; border-collapse:collapse; min-width:1100px;">
+      <thead>
+        <tr>
+          <th style="position:sticky; top:0; z-index:2; background:rgba(25,25,25,0.97); text-transform:uppercase; letter-spacing:0.08em; font-size:12px; color:var(--text-muted); padding:10px; white-space:nowrap;">Dato</th>
+          <th style="position:sticky; top:0; z-index:2; background:rgba(25,25,25,0.97); text-transform:uppercase; letter-spacing:0.08em; font-size:12px; color:var(--text-muted); padding:10px; white-space:nowrap;">Start</th>
+          <th style="position:sticky; top:0; z-index:2; background:rgba(25,25,25,0.97); text-transform:uppercase; letter-spacing:0.08em; font-size:12px; color:var(--text-muted); padding:10px; white-space:nowrap;">Sted</th>
+          <th style="position:sticky; top:0; z-index:2; background:rgba(25,25,25,0.97); text-transform:uppercase; letter-spacing:0.08em; font-size:12px; color:var(--text-muted); padding:10px;">Beskrivelse</th>
+          <th style="position:sticky; top:0; z-index:2; background:rgba(25,25,25,0.97); text-transform:uppercase; letter-spacing:0.08em; font-size:12px; color:var(--text-muted); padding:10px;">Note</th>
+          <th style="position:sticky; top:0; z-index:2; background:rgba(25,25,25,0.97); text-transform:uppercase; letter-spacing:0.08em; font-size:12px; color:var(--text-muted); padding:10px; white-space:nowrap;">Behov</th>
+          <th style="position:sticky; top:0; z-index:2; background:rgba(25,25,25,0.97); text-transform:uppercase; letter-spacing:0.08em; font-size:12px; color:var(--text-muted); padding:10px; white-space:nowrap;">Godkendte</th>
+          <th style="position:sticky; top:0; z-index:2; background:rgba(25,25,25,0.97); text-transform:uppercase; letter-spacing:0.08em; font-size:12px; color:var(--text-muted); padding:10px; white-space:nowrap;">Mangler</th>
+          <th style="position:sticky; top:0; z-index:2; background:rgba(25,25,25,0.97); text-transform:uppercase; letter-spacing:0.08em; font-size:12px; color:var(--text-muted); padding:10px; white-space:nowrap;">Status</th>
+          <th style="position:sticky; top:0; z-index:2; background:rgba(25,25,25,0.97); text-transform:uppercase; letter-spacing:0.08em; font-size:12px; color:var(--text-muted); padding:10px; white-space:nowrap;">Handling</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for shift in shifts %}
+          {% set approved_count = shift.approved or 0 %}
+          {% set remaining = shift.needed - approved_count %}
+
+          <tr data-shift-id="{{ shift.id }}"
+              data-cancel-base="{{ url_for('freelancer_frameld', signup_id=0) }}"
+              style="border-bottom:1px solid rgba(255,255,255,0.08);">
+            <td style="padding:10px; white-space:nowrap;">{{ shift.date|dkdate }}</td>
+            <td style="padding:10px; white-space:nowrap;">{{ shift.time }}</td>
+            <td style="padding:10px;">{{ shift.location }}</td>
+
+            <td style="padding:10px;">
+              <strong>{{ shift.description or "Vagt" }}</strong>
+              {% if shift.customer or shift.event_type %}
+                <div class="helper-text" style="margin-top:4px;">
+                  {% if shift.customer %}{{ shift.customer }}{% endif %}
+                  {% if shift.customer and shift.event_type %} · {% endif %}
+                  {% if shift.event_type %}{{ shift.event_type }}{% endif %}
+                </div>
+              {% endif %}
+            </td>
+
+            <td style="padding:10px;">
+              {% if shift.admin_note and shift.admin_note|trim %}
+                <div style="
+                  padding:8px 10px;
+                  border-radius:12px;
+                  border:1px solid rgba(255,213,105,0.22);
+                  background:rgba(255,213,105,0.08);
+                ">{{ shift.admin_note }}</div>
+              {% else %}
+                <span class="helper-text">–</span>
+              {% endif %}
+            </td>
+
+            <td style="padding:10px; white-space:nowrap;">{{ shift.needed }}</td>
+            <td style="padding:10px; white-space:nowrap;">{{ approved_count }}</td>
+            <td class="remaining-cell" style="padding:10px; white-space:nowrap;">
+              {% if remaining > 0 %}{{ remaining }}{% else %}0{% endif %}
+            </td>
+
+            <td class="status-cell" style="padding:10px; white-space:nowrap;">
+              {% if remaining > 0 %}
+                Åben
+              {% else %}
+                Fyldt
+              {% endif %}
+            </td>
+
+            <td style="padding:10px; white-space:nowrap;">
+              <div class="action-cell" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+                {% if remaining > 0 %}
+                  <form method="get" action="{{ url_for('tilmeld', shift_id=shift.id) }}" style="margin:0;">
+                    <button type="submit" class="btn btn-primary">Meld dig på</button>
+                  </form>
+                {% endif %}
+                <span class="cancel-slot"></span>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+(function(){
+  // simple filter
+  const input = document.getElementById("mogensFilter");
+  const table = document.getElementById("mogensTable");
+  if (input && table) {
+    const rows = Array.from(table.querySelectorAll("tbody tr"));
+    input.addEventListener("input", () => {
+      const q = input.value.toLowerCase().trim();
+      rows.forEach(r => {
+        const txt = r.innerText.toLowerCase();
+        r.style.display = txt.includes(q) ? "" : "none";
+      });
+    });
+  }
+
+  // same signup-status logic as cards
+  let phone = null;
+  try { phone = localStorage.getItem("myggen_phone"); } catch (e) {}
+  if (!phone) return;
+
+  fetch("/api/signups-for-phone?phone=" + encodeURIComponent(phone))
+    .then(r => r.json())
+    .then(data => {
+      if (!data || !Array.isArray(data.signups)) return;
+
+      const byShift = {};
+      data.signups.forEach(s => {
+        byShift[String(s.shift_id)] = { status: s.status, signup_id: s.signup_id };
+      });
+
+      document.querySelectorAll("[data-shift-id]").forEach(row => {
+        const shiftId = row.getAttribute("data-shift-id");
+        const entry = byShift[String(shiftId)];
+        if (!entry) return;
+
+        const status = entry.status;
+        const signupId = entry.signup_id;
+
+        const statusCell = row.querySelector(".status-cell");
+        const actionCell = row.querySelector(".action-cell");
+        const cancelSlot = row.querySelector(".cancel-slot");
+        const cancelBase = row.getAttribute("data-cancel-base") || "";
+
+        function buildCancelUrl(base, id) {
+          if (!base) return "";
+          return base.replace(/0$/, String(id));
+        }
+
+        // hvis allerede tilmeldt: fjern "Meld dig på" (behold cancel-slot)
+        if (status === "REQUESTED" || status === "APPROVED" || status === "RELEASE_REQUESTED") {
+          if (actionCell) {
+            const forms = actionCell.querySelectorAll("form");
+            forms.forEach(f => f.remove());
+          }
+        }
+
+        if (status === "REQUESTED") {
+          if (statusCell) statusCell.textContent = "Afventer (tilmeldt)";
+          if (cancelSlot && signupId) {
+            const cancelUrl = buildCancelUrl(cancelBase, signupId);
+            cancelSlot.innerHTML = `
+              <form method="post"
+                    action="${cancelUrl}"
+                    onsubmit="return confirm('Er du sikker på at du vil fremelde dig denne vagt?');"
+                    style="margin:0;">
+                <button type="submit" class="btn btn-danger">Fremeld</button>
+              </form>
+            `;
+          }
+        } else if (status === "APPROVED") {
+          if (statusCell) statusCell.textContent = "Godkendt";
+          if (cancelSlot) cancelSlot.innerHTML = "";
+        } else if (status === "RELEASE_REQUESTED") {
+          if (statusCell) statusCell.textContent = "Fri ønsket";
+          if (cancelSlot) cancelSlot.innerHTML = "";
+        }
+      });
+    })
+    .catch(() => {});
+})();
+</script>
+{% endblock %}

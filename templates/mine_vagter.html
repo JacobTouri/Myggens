@@ -9,14 +9,14 @@
     <section class="card card-soft">
         <div class="card-header">
             <h1 style="margin:0;">Mine vagter</h1>
-            <div class="card-subtitle">Overblik </div>
+            <div class="card-subtitle"></div>
         </div>
 
         <!-- Søg / vis mine vagter -->
         <div class="card" style="margin-top: 10px;">
             <h2 style="margin: 0 0 8px 0;">Find dine vagter</h2>
             <p style="margin: 0 0 10px 0;">
-                Indtast telefonnummer for at hente dine vagter.
+                Indtast telefonnummer for at hente vagter tilknyttet nummeret.
             </p>
 
             <form method="post" style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
@@ -97,6 +97,24 @@
                                 <div class="helper-text">Angivet: <strong style="color: var(--text-main);">kan hele dagen</strong></div>
                             {% endif %}
                         </div>
+
+                        <!-- REQUESTED: allow cancel -->
+                        {% if item.status == "REQUESTED" %}
+                            <div style="margin-top: 10px;">
+                                <div class="helper-text">
+                                    Kan ikke alligvel? Eller ønsker du at annullere din tilmelding? Så tryk her
+                                </div>
+
+                                <div style="margin-top: 10px; display:flex; gap:8px; flex-wrap:wrap;">
+                                    <form method="post"
+                                          action="{{ url_for('freelancer_frameld', signup_id=item.signup_id) }}"
+                                          onsubmit="return confirm('Er du sikker på at du vil fremelde dig denne vagt?');"
+                                          style="margin:0;">
+                                        <button type="submit" class="btn btn-danger">Fremeld</button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% endif %}
 
                         <!-- Meet time info (approved) -->
                         {% if item.status == "APPROVED" %}
@@ -215,18 +233,9 @@
                                     </div>
                                 {% endif %}
                             </div>
-                            <span class="tag-pill" style="
-                                border-color: rgba(255,213,105,0.7);
-                                background: rgba(255,213,105,0.12);
-                                color:#ffe6a6;
-                                flex: 0 0 auto;
-                                width: fit-content;
-                                align-self: flex-start;
-                                white-space: nowrap;
-                            ">
+                            <span class="tag-pill" style="border-color: rgba(255,213,105,0.7); background: rgba(255,213,105,0.12); color:#ffe6a6;">
                                 Timer mangler
                             </span>
-
                         </div>
 
                         <form method="post"
@@ -256,6 +265,10 @@
             <a href="{{ url_for('mine_vagter_historik') }}" class="btn btn-secondary">
                 Se tidligere vagter og månedligt timeoverblik
             </a>
+
+            <a href="{{ url_for('freelancer_extra_shift') }}" class="btn btn-primary">
+                Tilføj ekstravagt
+            </a>
         </div>
     </section>
 
@@ -271,6 +284,8 @@
                     Mangler timer fra tidligere vagter? Udfyld dem nederst.
                 </p>
             </div>
+
+            <div class="hero-badge-row">
             </div>
         </div>
     </aside>
