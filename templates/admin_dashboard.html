@@ -17,7 +17,20 @@
     .kpi-sub { font-size: 13px; color: var(--text-muted); margin-top: 6px; }
     .kpi-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top: 10px; }
 
-    .table-wrap { overflow:auto; border-radius: 14px; border: 1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.15); }
+    /* =========================
+       VIGTIGT: iOS scroll-lock fix
+       - table-wrap må IKKE have vertikal overflow
+       - siden (body) skal scrolle vertikalt
+       ========================= */
+    .table-wrap {
+        overflow-x: auto;
+        overflow-y: visible;              /* <-- no vertical inner scroll */
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,0.10);
+        background: rgba(0,0,0,0.15);
+        -webkit-overflow-scrolling: touch;
+        touch-action: pan-x pan-y;
+    }
 
     /* ✅ VIGTIGT: stop “børnetabeller” */
     table {
@@ -62,6 +75,15 @@
     .pill.bad { border-color: rgba(255,75,75,0.35); background: rgba(255,75,75,0.10); }
 
     .btn-small { padding: 7px 12px; font-size: 13px; }
+
+    /* =========================
+       MOBIL: undgå sticky header + iOS quirks
+       (desktop uændret)
+       ========================= */
+    @media (max-width: 900px){
+        th{ position: static; top:auto; z-index:auto; }
+        .table-wrap{ overflow-x:auto; overflow-y:visible; }
+    }
 </style>
 {% endblock %}
 

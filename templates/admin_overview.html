@@ -22,14 +22,21 @@
   .pill.warn{border-color:rgba(255,213,105,0.35);background:rgba(255,213,105,0.10);}
   .pill.bad{border-color:rgba(255,75,75,0.35);background:rgba(255,75,75,0.10);}
 
+  /* =========================
+     VIGTIGT: iOS scroll-lock fix
+     - table-wrap må KUN scrolle horisontalt
+     - siden (body) skal have lov at scrolle vertikalt
+     ========================= */
   .table-wrap{
-    overflow:auto;
+    overflow-x:auto;
+    overflow-y:visible;              /* <-- no vertical inner scroll */
     border-radius:14px;
     border:1px solid rgba(255,255,255,0.10);
     background:rgba(0,0,0,0.15);
 
-    /* iOS: smooth scrolling */
+    /* iOS: smooth horizontal scrolling */
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;       /* hjælper på iOS touch gestures */
   }
 
   table{width:100%;border-collapse:collapse;min-width:1100px;}
@@ -101,11 +108,12 @@
     .btn-row{width:100%;}
     .btn-row a{flex:1 1 auto;justify-content:center;}
 
-    /* Wrapper: mobilvenlig scroll */
+    /* Wrapper: mobilvenlig horisontal scroll (ingen vertical) */
     .table-wrap{
       overflow-x:auto;
-      overflow-y:hidden;
+      overflow-y:visible;            /* <-- behold som visible */
       -webkit-overflow-scrolling:touch;
+      touch-action: pan-x pan-y;
     }
 
     /* 🔥 Nøglen: drop sticky + tvangs-bredde på mobil */

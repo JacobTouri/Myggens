@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <title>{% block title %}Myggen's vagter{% endblock %}</title>
 
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- ✅ iOS/viewport: gør Safari mindre “låst” ved dynamic bars -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -28,18 +29,41 @@
 
         * { box-sizing: border-box; }
 
-        html, body {
-            margin: 0;
-            padding: 0;
+        /* ✅ iOS scroll-lock hardening:
+           - undgå “min-height:100%” som kan blive funky med 100vh
+           - brug dynamic viewport units hvor muligt
+        */
+        html {
+            height: auto;
             min-height: 100%;
+            overflow-x: hidden;
+            -webkit-text-size-adjust: 100%;
         }
 
         body {
+            margin: 0;
+            padding: 0;
+
             font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             background: radial-gradient(circle at top left, #2b2b2b 0, #050505 40%, #000 100%);
             color: var(--text-main);
+
+            /* ✅ BODY skal være den primære vertikale scroll-container */
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+
+            /* desktop-center som før */
             display: flex;
             justify-content: center;
+
+            /* ✅ dynamic viewport: hjælper især i Safari når address bar ændrer sig */
+            min-height: 100dvh;
+        }
+
+        /* Fallback hvis browser ikke kan 100dvh */
+        @supports not (height: 100dvh) {
+            body { min-height: 100vh; }
         }
 
         /* Global baggrundsbillede */
@@ -82,10 +106,19 @@
             box-shadow:
                 0 18px 60px rgba(0, 0, 0, 0.7),
                 0 0 0 1px rgba(255, 255, 255, 0.02);
+
+            /* ✅ vigtigt: ingen “indvendig” scroll-container */
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            min-height: calc(100vh - 32px);
+
+            /* ✅ tidligere: min-height: calc(100vh - 32px);
+               Skift til d-vh for iOS addressbar issues */
+            min-height: calc(100dvh - 32px);
+        }
+
+        @supports not (height: 100dvh) {
+            .app-frame { min-height: calc(100vh - 32px); }
         }
 
         /* HEADER */
@@ -175,6 +208,9 @@
             flex-direction: column;
             gap: 14px;
             background: rgba(0,0,0,0.18);
+
+            /* ✅ vigtigt: lad content være “normal flow” så BODY kan scrolle */
+            min-height: 0;
         }
 
         h1, h2, h3 { margin-top: 0; color: #fff; }
@@ -345,11 +381,15 @@
         /* LOGIN / LANDING PAGES */
         .login-bg {
             position: relative;
-            min-height: calc(100vh - 140px);
+            min-height: calc(100dvh - 140px);
             display: flex;
             align-items: center;
             justify-content: center;
         }
+        @supports not (height: 100dvh) {
+            .login-bg { min-height: calc(100vh - 140px); }
+        }
+
         .login-bg::before {
             content: "";
             position: absolute;
@@ -392,6 +432,9 @@
             grid-template-columns: 240px minmax(0, 1fr);
             gap: 14px;
             align-items: start;
+
+            /* ✅ vigtigt: ikke skabe en scrolling container */
+            min-height: 0;
         }
 
         .admin-nav {
@@ -450,6 +493,9 @@
         .admin-content {
             padding: 0;
             background: transparent;
+
+            /* ✅ vigtigt når grid children ellers kan “sprænge” iOS */
+            min-width: 0;
         }
 
         @media (max-width: 900px) {
@@ -525,12 +571,22 @@
                 justify-content: flex-start;
             }
 
-            /* Tabeller: scroll i stedet for wrap-kaos */
-            .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-            .table-wrap table { min-width: 900px; }
+            /* ✅ KRITISK FIX:
+               table-wrap må kun scrolle horisontalt (ikke vertikalt),
+               ellers kan iOS låse scroll på hele siden.
+            */
+            .table-wrap {
+                overflow-x: auto;
+                overflow-y: visible;
+                -webkit-overflow-scrolling: touch;
+                touch-action: pan-x pan-y;
+            }
+
+            /* Fjern global “tving nowrap + min-width 900px” som skaber indre scroll-bur */
+            .table-wrap table { min-width: 0; }
             .table-wrap th, .table-wrap td {
-                white-space: nowrap !important;
-                word-break: normal !important;
+                white-space: normal !important;
+                word-break: break-word !important;
             }
 
             /* Admin content: ingen ekstra padding/ting */
