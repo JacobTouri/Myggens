@@ -778,6 +778,110 @@ def set_signup_meet_time(signup_id: int, meet_time: str | None):
 
 from datetime import date
 
+def get_hours_for_period(date_from: str, date_to: str, include_paid: bool = False, include_missing: bool = True):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    today_str = date.today().strftime("%Y-%m-%d")
+    effective_to = min(date_to, today_str)
+
+    normal_query = """
+        SELECT
+            sg.id AS signup_id,
+            sg.work_start,
+            sg.work_end,
+            sg.work_hours,
+            sg.approved_work_hours,
+            sg.hours_approved_by_admin,
+            sg.payroll_paid,
+            sg.payroll_paid_at,
+
+            s.date AS shift_date,
+            s.location AS location,
+            s.description AS description,
+
+            p.name AS person_name,
+            p.phone AS phone
+        FROM signups sg
+        JOIN shifts s ON s.id = sg.shift_id
+        JOIN persons p ON p.id = sg.person_id
+        WHERE
+            sg.status = ?
+            AND s.date >= ?
+            AND s.date <= ?
+    """
+
+    normal_params = ["APPROVED", date_from, effective_to]
+
+    if not include_missing:
+        normal_query += " AND sg.work_hours IS NOT NULL"
+
+    if not include_paid:
+        normal_query += " AND (sg.payroll_paid IS NULL OR sg.payroll_paid = 0)"
+
+    extra_query = """
+        SELECT
+            es.id AS signup_id,
+            es.work_start,
+            es.work_end,
+            es.work_hours,
+            es.approved_work_hours,
+            es.hours_approved_by_admin,
+            es.payroll_paid,
+            es.payroll_paid_at,
+
+            es.date AS shift_date,
+            '' AS location,
+            es.note AS description,
+
+            p.name AS person_name,
+            p.phone AS phone
+        FROM extra_shifts es
+        JOIN persons p ON p.id = es.person_id
+        WHERE
+            es.date >= ?
+            AND es.date <= ?
+    """
+
+    extra_params = [date_from, effective_to]
+
+    if not include_missing:
+        extra_query += " AND es.work_hours IS NOT NULL"
+
+    if not include_paid:
+        extra_query += " AND (es.payroll_paid IS NULL OR es.payroll_paid = 0)"
+
+    query = f"""
+        {normal_query}
+        UNION ALL
+        {extra_query}
+        ORDER BY person_name, shift_date
+    """
+
+    cur.execute(query, normal_params + extra_params)
+    rows = cur.fetchall()
+    conn.close()
+
+    result = []
+    for row in rows:
+        result.append({
+            "signup_id": row["signup_id"],
+            "work_start": row["work_start"],
+            "work_end": row["work_end"],
+            "work_hours": row["work_hours"],
+            "approved_work_hours": row["approved_work_hours"],
+            "hours_approved_by_admin": bool(row["hours_approved_by_admin"]),
+            "payroll_paid": bool(row["payroll_paid"]),
+            "payroll_paid_at": row["payroll_paid_at"],
+            "shift_date": row["shift_date"],
+            "location": row["location"],
+            "description": row["description"],
+            "person_name": row["person_name"],
+            "phone": row["phone"],
+        })
+    return result
+
+
 def get_hours_for_month(year: int, month: int, include_paid: bool = False, include_missing: bool = True):
     conn = get_connection()
     cur = conn.cursor()

@@ -969,27 +969,19 @@ def admin_timer():
     now = datetime.now()
 
     # ---- params ----
-    try:
-        year = int(request.args.get("year", now.year))
-    except ValueError:
-        year = now.year
+    default_from = now.replace(day=1).strftime("%Y-%m-%d")
+    default_to = now.strftime("%Y-%m-%d")
 
-    try:
-        month = int(request.args.get("month", now.month))
-    except ValueError:
-        month = now.month
-
+    date_from = request.args.get("date_from", default_from)
+    date_to = request.args.get("date_to", default_to)
     show_paid = request.args.get("show_paid") == "1"
 
-    # dropdown years
-    years = list(range(now.year - 2, now.year + 3))
-
-    # ---- hent rækker (din funktion) ----
-    rows = database.get_hours_for_month(
-        year=year,
-        month=month,
+    # ---- hent rækker ----
+    rows = database.get_hours_for_period(
+        date_from=date_from,
+        date_to=date_to,
         include_paid=show_paid,
-        include_missing=True,  # behold hvis du vil se "timer mangler" rækker
+        include_missing=True,
     )
 
     # ---- group + summer ----
@@ -1025,9 +1017,8 @@ def admin_timer():
     return render_template(
         "admin_timer.html",
         people=people,
-        years=years,
-        year=year,
-        month=month,
+        date_from=date_from,
+        date_to=date_to,
         show_paid=show_paid,
         grand_total=grand_total,
     )
@@ -1110,9 +1101,9 @@ def admin_timer_mark_paid(signup_id):
     # Skal vi sætte eller rydde "afregnet"?
     paid_flag = request.form.get("paid", "1") == "1"
 
-    # Bruges til at hoppe tilbage til samme måned/visning
-    year = request.form.get("year", type=int)
-    month = request.form.get("month", type=int)
+    # Bruges til at hoppe tilbage til samme periode/visning
+    date_from = request.form.get("date_from", "")
+    date_to = request.form.get("date_to", "")
     show_paid = request.form.get("show_paid", "0")
 
     # 🔐 KRITISK CHECK: timer skal være godkendt før afregning
@@ -1120,11 +1111,11 @@ def admin_timer_mark_paid(signup_id):
 
     if not signup:
         flash("Kunne ikke finde tilmeldingen.")
-        return redirect(url_for("admin_timer", year=year, month=month, show_paid=show_paid))
+        return redirect(url_for("admin_timer", date_from=date_from, date_to=date_to, show_paid=show_paid))
 
     if paid_flag and not signup.get("hours_approved_by_admin"):
         flash("Timer skal godkendes før afregning.")
-        return redirect(url_for("admin_timer", year=year, month=month, show_paid=show_paid))
+        return redirect(url_for("admin_timer", date_from=date_from, date_to=date_to, show_paid=show_paid))
 
     # OK → udfør afregning / fortryd
     database.set_signup_payroll_status(signup_id, paid_flag)
@@ -1135,7 +1126,7 @@ def admin_timer_mark_paid(signup_id):
         else "Afregning for denne vagt er nulstillet."
     )
 
-    return redirect(url_for("admin_timer", year=year, month=month, show_paid=show_paid))
+    return redirect(url_for("admin_timer", date_from=date_from, date_to=date_to, show_paid=show_paid))
 
 
 

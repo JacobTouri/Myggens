@@ -84,21 +84,13 @@
   <form method="get">
     <div class="form-row">
       <div class="form-field">
-        <label for="year">År</label>
-        <select name="year" id="year">
-          {% for y in years %}
-            <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
-          {% endfor %}
-        </select>
+        <label for="date_from">Fra</label>
+        <input type="date" name="date_from" id="date_from" value="{{ date_from }}">
       </div>
 
       <div class="form-field">
-        <label for="month">Måned</label>
-        <select name="month" id="month">
-          {% for m in range(1, 13) %}
-            <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ "%02d"|format(m) }}</option>
-          {% endfor %}
-        </select>
+        <label for="date_to">Til</label>
+        <input type="date" name="date_to" id="date_to" value="{{ date_to }}">
       </div>
 
       <div class="form-field" style="min-width:260px;flex:2;">
@@ -116,7 +108,7 @@
 
   <div class="summary-row">
     <div class="helper-text">
-      Periode: {{ "%02d"|format(month) }}/{{ year }}
+      Periode: {{ date_from }} → {{ date_to }}
     </div>
     <div class="tag-pill-strong">
       Total (alle): {{ "%.2f"|format(grand_total or 0) }} timer
@@ -217,6 +209,9 @@
                         class="btn-row"
                         style="margin:0;">
                     <input type="hidden" name="paid" value="1">
+                    <input type="hidden" name="date_from" value="{{ date_from }}">
+                    <input type="hidden" name="date_to" value="{{ date_to }}">
+                    <input type="hidden" name="show_paid" value="{{ '1' if show_paid else '0' }}">
                     <button class="btn btn-success btn-small">
                       Marker afregnet
                     </button>
