@@ -453,10 +453,12 @@ def mine_vagter():
 
     upcoming_signups = []
     unlogged_signups = []
+    extra_shifts = []
     has_any_signups = False
 
     if phone:
         all_signups = database.get_signups_by_phone(phone)
+        extra_shifts = database.get_extra_shifts_by_phone(phone)
         has_any_signups = bool(all_signups)
 
         today_str = date.today().isoformat()
@@ -501,6 +503,7 @@ def mine_vagter():
         phone=phone,
         upcoming_signups=upcoming_signups,
         unlogged_signups=unlogged_signups,
+        extra_shifts=extra_shifts,
         has_any_signups=has_any_signups,
     )
 

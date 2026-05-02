@@ -259,6 +259,37 @@
             </div>
         {% endif %}
 
+        {% if extra_shifts %}
+        <div style="margin-top: 18px;">
+            <h2 style="margin-bottom: 8px;">Ekstravagter</h2>
+            {% for es in extra_shifts %}
+                <div class="card" style="margin-top: 10px;
+                    {% if es.status == 'APPROVED' %}border-color: rgba(58,203,106,0.35); background: rgba(58,203,106,0.06);
+                    {% elif es.status == 'REJECTED' %}border-color: rgba(255,75,75,0.35); background: rgba(255,75,75,0.06);
+                    {% else %}border-color: rgba(255,213,105,0.35); background: rgba(255,213,105,0.06);{% endif %}">
+                    <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                        <div>
+                            <div style="font-weight:600; font-size:16px;">{{ es.date|dkdate }}</div>
+                            <div class="helper-text">Kl. {{ es.work_start }}–{{ es.work_end }} ({{ es.work_hours }} timer)</div>
+                            {% if es.note %}
+                                <div style="margin-top:6px;">{{ es.note }}</div>
+                            {% endif %}
+                        </div>
+                        <div>
+                            {% if es.status == 'APPROVED' %}
+                                <span class="tag-pill" style="border-color:rgba(58,203,106,0.6);background:rgba(58,203,106,0.12);color:#9ff2b7;">Godkendt ✅</span>
+                            {% elif es.status == 'REJECTED' %}
+                                <span class="tag-pill" style="border-color:rgba(255,75,75,0.5);background:rgba(255,75,75,0.10);color:#ffaaaa;">Afvist ❌</span>
+                            {% else %}
+                                <span class="tag-pill">Afventer 🕒</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
         <hr style="margin: 20px 0; border-color: rgba(255,255,255,0.08);">
 
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">

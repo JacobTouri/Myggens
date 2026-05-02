@@ -1292,6 +1292,35 @@ def approve_extra_work_hours(extra_id: int, approved_hours: float):
     conn.close()
 
 
+def get_extra_shifts_by_phone(phone: str) -> list:
+    """Hent alle ekstravagter for et telefonnummer, nyeste først."""
+    phone_clean = phone.replace(" ", "")
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT
+            es.id AS extra_id,
+            es.date,
+            es.work_start,
+            es.work_end,
+            es.work_hours,
+            es.note,
+            es.status,
+            es.approved_work_hours,
+            es.created_at
+        FROM extra_shifts es
+        JOIN persons p ON p.id = es.person_id
+        WHERE p.phone = ?
+        ORDER BY es.date DESC, es.created_at DESC
+        """,
+        (phone_clean,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
 def reject_extra_shift(extra_id: int):
     conn = get_connection()
     cur = conn.cursor()
