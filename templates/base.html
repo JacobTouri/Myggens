@@ -504,6 +504,88 @@
             }
         }
 
+        /* Form utilities */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 12px;
+        }
+        .form-group:last-of-type { margin-bottom: 0; }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .form-grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+        }
+        @media (max-width: 600px) {
+            .form-grid, .form-grid-3 { grid-template-columns: 1fr; }
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(255,255,255,0.07);
+        }
+
+        /* Section divider */
+        .section-divider {
+            border: none;
+            border-top: 1px solid rgba(255,255,255,0.07);
+            margin: 16px 0;
+        }
+
+        /* Card hover lift */
+        .card-lift {
+            transition: transform 0.12s ease, box-shadow 0.12s ease;
+            cursor: pointer;
+        }
+        .card-lift:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px rgba(0,0,0,0.45);
+        }
+
+        /* Card with accent top border */
+        .card-accent {
+            border-top: 2px solid var(--accent);
+        }
+
+        /* Stat block */
+        .stat-block { display: flex; flex-direction: column; gap: 2px; }
+        .stat-number { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+        .stat-label { font-size: 13px; color: var(--text-muted); }
+
+        /* Admin nav active state */
+        .admin-nav a.nav-active {
+            background: rgba(255, 122, 26, 0.12);
+            border-color: rgba(255, 122, 26, 0.35);
+            color: var(--accent-strong);
+        }
+
+        /* Date chip (used in shift cards) */
+        .date-chip {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-width: 48px;
+            background: rgba(255, 122, 26, 0.10);
+            border: 1px solid rgba(255, 122, 26, 0.22);
+            border-radius: 10px;
+            padding: 6px 10px;
+            flex-shrink: 0;
+        }
+        .date-chip-day { font-size: 22px; font-weight: 700; line-height: 1; color: var(--accent-strong); }
+        .date-chip-month { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-top: 2px; }
+
         /* Mobil */
         @media (max-width: 600px) {
             .app-header { padding: 10px 12px; }
@@ -641,10 +723,16 @@
             </header>
 
             <div class="flash-container">
-                {% with messages = get_flashed_messages() %}
+                {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
-                        {% for msg in messages %}
-                            <div class="flash flash-info">{{ msg }}</div>
+                        {% for category, msg in messages %}
+                            {% if category == 'success' %}
+                                <div class="flash flash-success">{{ msg }}</div>
+                            {% elif category == 'error' %}
+                                <div class="flash flash-error">{{ msg }}</div>
+                            {% else %}
+                                <div class="flash flash-info">{{ msg }}</div>
+                            {% endif %}
                         {% endfor %}
                     {% endif %}
                 {% endwith %}
@@ -659,23 +747,23 @@
                             <div class="admin-nav-sub">Overblik, bemanding, timer</div>
                         </div>
 
-                        <a href="{{ url_for('admin_dashboard') }}">
+                        <a href="{{ url_for('admin_dashboard') }}" class="{{ 'nav-active' if request.endpoint == 'admin_dashboard' else '' }}">
                             <span>Dashboard</span><span class="nav-right">→</span>
                         </a>
 
-                        <a href="{{ url_for('admin_overview') }}">
+                        <a href="{{ url_for('admin_overview') }}" class="{{ 'nav-active' if request.endpoint == 'admin_overview' else '' }}">
                             <span>Bemanding</span><span class="nav-right">→</span>
                         </a>
 
-                        <a href="{{ url_for('admin_person_list') }}">
+                        <a href="{{ url_for('admin_person_list') }}" class="{{ 'nav-active' if request.endpoint == 'admin_person_list' else '' }}">
                             <span>Personale</span><span class="nav-right">→</span>
                         </a>
 
-                        <a href="{{ url_for('admin_timer') }}">
+                        <a href="{{ url_for('admin_timer') }}" class="{{ 'nav-active' if request.endpoint == 'admin_timer' else '' }}">
                             <span>Timer / løn</span><span class="nav-right">→</span>
                         </a>
 
-                        <a href="{{ url_for('admin_history') }}">
+                        <a href="{{ url_for('admin_history') }}" class="{{ 'nav-active' if request.endpoint == 'admin_history' else '' }}">
                             <span>Historik</span><span class="nav-right">→</span>
                         </a>
                     </aside>

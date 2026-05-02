@@ -18,79 +18,63 @@
       </div>
     </div>
 
-    <div class="shift-list" style="margin-top:12px;">
+    <div class="shift-list" style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
       {% for shift in shifts %}
         {% set approved_count = shift.approved or 0 %}
         {% set remaining = shift.needed - approved_count %}
+        {% set date_parts = shift.date.split('-') %}
 
-        <!-- Kort -->
-        <div class="card"
-             style="margin-top:12px;"
+        <div class="card card-lift"
              data-shift-id="{{ shift.id }}"
              data-cancel-base="{{ url_for('freelancer_frameld', signup_id=0) }}">
 
-          <!-- Top row: dato/tid/loc + badge + fremeld-slot -->
-          <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-            <div>
-              <div style="font-weight:700; font-size:16px;">{{ shift.date|dkdate }}</div>
-              <div class="helper-text">Kl. {{ shift.time }} – {{ shift.location }}</div>
+          <div style="display:flex; gap:14px; align-items:flex-start;">
+
+            <!-- Date chip -->
+            <div class="date-chip">
+              <div class="date-chip-day">{{ date_parts[2] }}</div>
+              <div class="date-chip-month">
+                {% set months = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'] %}
+                {{ months[date_parts[1]|int - 1] }}
+              </div>
             </div>
 
-            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
-              {% if remaining > 0 %}
-                <div class="tag-pill">MANGLER {{ remaining }}</div>
-              {% else %}
-                <div class="tag-pill" style="border-color: rgba(58,203,106,0.6); background: rgba(58,203,106,0.12); color:#9ff2b7;">
-                  HOLDET ER FYLDT
+            <!-- Main content -->
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap;">
+                <div>
+                  <div style="font-weight:700; font-size:17px; line-height:1.2;">{{ shift.description or "Vagt" }}</div>
+                  <div class="helper-text" style="margin-top:3px;">Kl. {{ shift.time }} &middot; {{ shift.location }}</div>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0;">
+                  {% if remaining > 0 %}
+                    <div class="tag-pill">MANGLER {{ remaining }}</div>
+                  {% else %}
+                    <div class="tag-pill" style="border-color:rgba(58,203,106,0.5); background:rgba(58,203,106,0.10); color:#9ff2b7;">FYLDT</div>
+                  {% endif %}
+                  <div class="cancel-slot"></div>
+                </div>
+              </div>
+
+              {% if shift.admin_note and shift.admin_note|trim %}
+                <div style="margin-top:8px; padding:7px 10px; border-radius:10px; border:1px solid rgba(255,213,105,0.20); background:rgba(255,213,105,0.07);">
+                  <span class="helper-text" style="opacity:1;"><strong>Note:</strong> {{ shift.admin_note }}</span>
                 </div>
               {% endif %}
 
-              <!-- JS indsætter evt. fremeld-knap her -->
-              <div class="cancel-slot"></div>
-            </div>
-          </div>
-
-          <!-- Titel/tekst -->
-          <div style="margin-top:10px;">
-            <div style="font-weight:700; font-size:18px;">
-              {{ shift.description or "Vagt" }}
-            </div>
-
-            <!-- Admin note (synlig på eventkalenderen) -->
-            {% if shift.admin_note and shift.admin_note|trim %}
-              <div style="
-                margin-top:8px;
-                padding:8px 10px;
-                border-radius:12px;
-                border:1px solid rgba(255,213,105,0.22);
-                background:rgba(255,213,105,0.08);
-                color: rgba(255,255,255,0.92);
-              ">
-                <div class="helper-text" style="margin:0; opacity:0.95;">
-                  <strong>Note:</strong> {{ shift.admin_note }}
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; flex-wrap:wrap;">
+                <div class="shift-status-text helper-text">
+                  {% if remaining > 0 %}Mangler {{ remaining }} person(er){% else %}Holdet er fyldt{% endif %}
+                </div>
+                <div class="signup-area">
+                  {% if remaining > 0 %}
+                    <form method="get" action="{{ url_for('tilmeld', shift_id=shift.id) }}" style="margin:0;">
+                      <button type="submit" class="btn btn-primary" style="padding:7px 16px; font-size:13px;">Meld dig på</button>
+                    </form>
+                  {% endif %}
                 </div>
               </div>
-            {% endif %}
-
-            <!-- Statuslinje: JS kan overskrive denne -->
-            {% if remaining > 0 %}
-              <div class="shift-status-text" style="margin-top:8px; opacity:0.9;">
-                Mangler: {{ remaining }} person(er)
-              </div>
-            {% else %}
-              <div class="shift-status-text" style="margin-top:8px; opacity:0.9;">
-                Holdet er fyldt ✅
-              </div>
-            {% endif %}
-          </div>
-
-          <!-- Actions -->
-          <div class="signup-area" style="margin-top:12px;">
-            {% if remaining > 0 %}
-              <form method="get" action="{{ url_for('tilmeld', shift_id=shift.id) }}" style="margin:0;">
-                <button type="submit" class="btn btn-primary">Meld dig på</button>
-              </form>
-            {% endif %}
+            </div>
           </div>
         </div>
       {% endfor %}
