@@ -238,18 +238,18 @@
 
 </div>
 
-<div class=”card full-width-card table-cards” id=”signups”>
-  <div class=”card-header”>
+<div class="card full-width-card" id="signups">
+  <div class="card-header">
     <div>
-      <h2 class=”section-title”>Tilmeldinger</h2>
-      <div class=”section-sub”>Godkend/afvis eller håndtér “ønsker fri”. Sæt evt. mødetid.</div>
+      <h2 class="section-title">Tilmeldinger</h2>
+      <div class="section-sub">Godkend/afvis eller håndtér “ønsker fri”. Sæt evt. mødetid.</div>
     </div>
   </div>
 
   {% if not signups %}
     <p>Ingen tilmeldinger endnu.</p>
   {% else %}
-    <div class=”table-wrap”>
+    <div class="table-wrap">
       <table>
         <thead>
           <tr>
@@ -272,12 +272,10 @@
             {% endif %}
 
             <tr>
-              <td class=”mob-header”>
-                <strong>{{ s.name }}</strong>
-              </td>
-              <td data-label=”Telefon”>{{ s.phone }}</td>
+              <td><strong>{{ s.name }}</strong></td>
+              <td>{{ s.phone }}</td>
 
-              <td data-label=”Tilgængelig”>
+              <td>
                 {% if s.available_from %}
                   Fra kl. {{ s.available_from }}
                 {% else %}
@@ -285,68 +283,69 @@
                 {% endif %}
               </td>
 
-              <td data-label=”Note”>
+              <td>
                 {% if freelancer_note %}
                   {{ freelancer_note }}
                 {% else %}
-                  <span class=”helper-text”>—</span>
+                  <span class="helper-text">—</span>
                 {% endif %}
               </td>
 
-              <td data-label=”Mødetid”>
-                <form method=”post”
-                      action=”{{ url_for('admin_set_meet_time', signup_id=s.signup_id) }}”
-                      class=”inline-form”>
-                  <input type=”time” name=”meet_time” value=”{{ s.meet_time or '' }}”>
-                  <button type=”submit” class=”btn btn-secondary btn-small”>Gem</button>
+              <td>
+                <form method="post"
+                      action="{{ url_for('admin_set_meet_time', signup_id=s.signup_id) }}"
+                      class="inline-form">
+                  <input type="time" name="meet_time" value="{{ s.meet_time or '' }}">
+                  <button type="submit" class="btn btn-secondary btn-small">Gem</button>
                 </form>
+                <div class="status-text">Bruges kun som admin-note/planlægning.</div>
               </td>
 
-              <td data-label=”Status”>
-                {% if s.status == “REQUESTED” %}
-                  <span class=”pill warn”>⏳ Afventer</span>
-                {% elif s.status == “APPROVED” %}
-                  <span class=”pill ok”>✅ Godkendt</span>
-                {% elif s.status == “RELEASE_REQUESTED” %}
-                  <span class=”pill bad”>🚪 Ønsker fri</span>
+              <td>
+                {% if s.status == "REQUESTED" %}
+                  <span class="pill warn">⏳ Afventer</span>
+                {% elif s.status == "APPROVED" %}
+                  <span class="pill ok">✅ Godkendt</span>
+                {% elif s.status == "RELEASE_REQUESTED" %}
+                  <span class="pill bad">🚪 Ønsker fri</span>
                 {% else %}
-                  <span class=”pill”>{{ s.status }}</span>
+                  <span class="pill">{{ s.status }}</span>
                 {% endif %}
               </td>
 
-              <td class=”mob-action”>
-                <div class=”btn-row”>
-                  {% if s.status == “REQUESTED” %}
-                    <form method=”post” action=”{{ url_for('admin_approve_signup', signup_id=s.signup_id) }}” style=”margin:0;”>
-                      <button type=”submit” class=”btn btn-primary btn-small”>Godkend</button>
+              <td>
+                <div class="btn-row">
+                  {% if s.status == "REQUESTED" %}
+                    <form method="post" action="{{ url_for('admin_approve_signup', signup_id=s.signup_id) }}" style="margin:0;">
+                      <button type="submit" class="btn btn-primary btn-small">Godkend</button>
                     </form>
-                    <form method=”post” action=”{{ url_for('admin_reject_signup', signup_id=s.signup_id) }}” style=”margin:0;”>
-                      <button type=”submit” class=”btn btn-danger btn-small”>Afvis</button>
-                    </form>
-
-                  {% elif s.status == “APPROVED” %}
-                    <form method=”post”
-                          action=”{{ url_for('admin_release_approve', signup_id=s.signup_id) }}”
-                          onsubmit=”return confirm('Fjerne personen fra vagten?');”
-                          style=”margin:0;”>
-                      <button type=”submit” class=”btn btn-danger btn-small”>Fjern fra vagt</button>
+                    <form method="post" action="{{ url_for('admin_reject_signup', signup_id=s.signup_id) }}" style="margin:0;">
+                      <button type="submit" class="btn btn-danger btn-small">Afvis</button>
                     </form>
 
-                  {% elif s.status == “RELEASE_REQUESTED” %}
-                    <form method=”post”
-                          action=”{{ url_for('admin_release_approve', signup_id=s.signup_id) }}”
-                          onsubmit=”return confirm('Godkend fri/afmelding?');”
-                          style=”margin:0;”>
-                      <button type=”submit” class=”btn btn-primary btn-small”>Godkend fri</button>
+                  {% elif s.status == "APPROVED" %}
+                    <form method="post"
+                          action="{{ url_for('admin_release_approve', signup_id=s.signup_id) }}"
+                          onsubmit="return confirm('Fjerne personen fra vagten?');"
+                          style="margin:0;">
+                      <button type="submit" class="btn btn-danger btn-small">Fjern fra vagt</button>
                     </form>
-                    <form method=”post”
-                          action=”{{ url_for('admin_release_deny', signup_id=s.signup_id) }}”
-                          onsubmit=”return confirm('Afvis fri-ønsket?');”
-                          style=”margin:0;”>
-                      <button type=”submit” class=”btn btn-secondary btn-small”>Afvis fri</button>
+
+                  {% elif s.status == "RELEASE_REQUESTED" %}
+                    <form method="post"
+                          action="{{ url_for('admin_release_approve', signup_id=s.signup_id) }}"
+                          onsubmit="return confirm('Godkend fri/afmelding?');"
+                          style="margin:0;">
+                      <button type="submit" class="btn btn-primary btn-small">Godkend fri</button>
+                    </form>
+                    <form method="post"
+                          action="{{ url_for('admin_release_deny', signup_id=s.signup_id) }}"
+                          onsubmit="return confirm('Afvis fri-ønsket?');"
+                          style="margin:0;">
+                      <button type="submit" class="btn btn-secondary btn-small">Afvis fri</button>
                     </form>
                   {% else %}
-                    <span class=”helper-text”>Ingen handlinger</span>
+                    <span class="helper-text">Ingen handlinger</span>
                   {% endif %}
                 </div>
               </td>

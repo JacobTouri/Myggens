@@ -181,7 +181,7 @@
   </div>
 </div>
 
-<div class="card table-cards" style="margin-top:14px;">
+<div class="card" style="margin-top:14px;">
   {% if not overview %}
     <p class="muted">Ingen kommende arrangementer.</p>
   {% else %}
@@ -207,18 +207,15 @@
             {% set remaining = need - appr %}
 
             <tr>
-              <td class=”nowrap sticky-col mob-header”>
-                {{ shift.date|dkdate }}
-                <span class=”mob-only” style=”font-weight:400;font-size:13px;color:var(--text-muted);”> · {{ shift.time }}</span>
-              </td>
-              <td class=”nowrap mob-hide”>{{ shift.time }}</td>
-              <td data-label=”Sted”>{{ shift.location }}</td>
+              <td class="nowrap sticky-col">{{ shift.date|dkdate }}</td>
+              <td class="nowrap">{{ shift.time }}</td>
+              <td>{{ shift.location }}</td>
 
-              <td data-label=”Beskrivelse”>
-                <strong>{{ shift.description or “Vagt” }}</strong>
+              <td>
+                <strong>{{ shift.description or "Vagt" }}</strong>
 
                 {% if shift.customer or shift.event_type %}
-                  <div class=”small muted” style=”margin-top:4px;”>
+                  <div class="small muted" style="margin-top:4px;">
                     {% if shift.customer %}{{ shift.customer }}{% endif %}
                     {% if shift.customer and shift.event_type %} · {% endif %}
                     {% if shift.event_type %}{{ shift.event_type }}{% endif %}
@@ -226,77 +223,80 @@
                 {% endif %}
 
                 {% if shift.admin_note %}
-                  <div class=”admin-note small”>
+                  <div class="admin-note small">
                     <strong>Note:</strong> {{ shift.admin_note }}
                   </div>
                 {% endif %}
               </td>
 
-              <td class=”nowrap” data-label=”Behov”>{{ need }}</td>
+              <td class="nowrap">{{ need }}</td>
 
-              <td class=”nowrap” data-label=”Bemanding”>
+              <td class="nowrap">
                 {% if appr >= need %}
-                  <span class=”pill ok”>✅ {{ appr }}</span>
+                  <span class="pill ok">✅ {{ appr }}</span>
                 {% elif appr > 0 %}
-                  <span class=”pill warn”>⚠️ {{ appr }}</span>
+                  <span class="pill warn">⚠️ {{ appr }}</span>
                 {% else %}
-                  <span class=”pill bad”>⛔ 0</span>
+                  <span class="pill bad">⛔ 0</span>
                 {% endif %}
               </td>
 
-              <td data-label=”Tilmeldte”>
+              <td>
                 {% if item.signups and item.signups|length > 0 %}
-                  <ul class=”name-list”>
+                  <ul class="name-list">
                     {% for s in item.signups %}
                       <li>
-                        <div class=”name-line”>
-                          {% if s.status == “APPROVED” %}
-                            <span class=”tag-mini ok”>✅ Godkendt</span>
-                          {% elif s.status == “REQUESTED” %}
-                            <span class=”tag-mini warn”>⏳ Afventer</span>
-                          {% elif s.status == “RELEASE_REQUESTED” %}
-                            <span class=”tag-mini bad”>🚪 Ønsker fri</span>
+                        <div class="name-line">
+                          {% if s.status == "APPROVED" %}
+                            <span class="tag-mini ok">✅ Godkendt</span>
+                          {% elif s.status == "REQUESTED" %}
+                            <span class="tag-mini warn">⏳ Afventer</span>
+                          {% elif s.status == "RELEASE_REQUESTED" %}
+                            <span class="tag-mini bad">🚪 Ønsker fri</span>
                           {% else %}
-                            <span class=”tag-mini”>{{ s.status }}</span>
+                            <span class="tag-mini">{{ s.status }}</span>
                           {% endif %}
 
                           <strong>{{ s.name }}</strong>
-                          <span class=”muted”>({{ s.phone }})</span>
+                          <span class="muted">({{ s.phone }})</span>
 
                           {% if s.meet_time %}
-                            <span class=”muted”>– møder {{ s.meet_time }}</span>
+                            <span class="muted">– møder {{ s.meet_time }}</span>
                           {% endif %}
 
+                          {# Availability: fra/til/range #}
                           {% if s.available_from and s.available_until %}
-                            <span class=”muted”>– kan {{ s.available_from }}–{{ s.available_until }}</span>
+                            <span class="muted">– kan {{ s.available_from }}–{{ s.available_until }}</span>
                           {% elif s.available_from %}
-                            <span class=”muted”>– kan fra {{ s.available_from }}</span>
+                            <span class="muted">– kan fra {{ s.available_from }}</span>
                           {% elif s.available_until %}
-                            <span class=”muted”>– kan til {{ s.available_until }}</span>
+                            <span class="muted">– kan til {{ s.available_until }}</span>
                           {% endif %}
 
+                          {# Freelancer note (valgfri, hvis du sender den med) #}
                           {% if s.freelancer_note %}
-                            <span class=”muted”>– note: “{{ s.freelancer_note }}”</span>
+                            <span class="muted">– note: “{{ s.freelancer_note }}”</span>
                           {% endif %}
                         </div>
                       </li>
                     {% endfor %}
                   </ul>
                 {% else %}
-                  <span class=”muted”><em>Ingen tilmeldte endnu</em></span>
+                  <span class="muted"><em>Ingen tilmeldte endnu</em></span>
                 {% endif %}
 
-                <div style=”margin-top:8px;”>
+                <div style="margin-top:8px;">
                   {% if remaining > 0 %}
-                    <span class=”pill warn”>Mangler {{ remaining }}</span>
+                    <span class="pill warn">Mangler {{ remaining }}</span>
                   {% else %}
-                    <span class=”pill ok”>Dækket</span>
+                    <span class="pill ok">Dækket</span>
                   {% endif %}
                 </div>
               </td>
 
-              <td class=”right nowrap mob-action”>
-                <a href=”{{ url_for('admin_edit_shift_form', shift_id=shift.id) }}” class=”btn btn-primary btn-small”>Åbn</a>
+              <td class="right nowrap">
+                <!-- ✅ RET: link skal gå til GET-formen, ikke POST-route -->
+                <a href="{{ url_for('admin_edit_shift_form', shift_id=shift.id) }}" class="btn btn-primary btn-small">Åbn</a>
               </td>
             </tr>
           {% endfor %}
