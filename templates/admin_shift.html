@@ -238,7 +238,7 @@
 
 </div>
 
-<div class="card full-width-card" id="signups">
+<div class="card full-width-card table-cards" id="signups">
   <div class="card-header">
     <div>
       <h2 class="section-title">Tilmeldinger</h2>
@@ -272,10 +272,10 @@
             {% endif %}
 
             <tr>
-              <td><strong>{{ s.name }}</strong></td>
-              <td>{{ s.phone }}</td>
+              <td class="mob-header"><strong>{{ s.name }}</strong></td>
+              <td data-label="Telefon">{{ s.phone }}</td>
 
-              <td>
+              <td data-label="Tilgaengelig">
                 {% if s.available_from %}
                   Fra kl. {{ s.available_from }}
                 {% else %}
@@ -283,7 +283,7 @@
                 {% endif %}
               </td>
 
-              <td>
+              <td data-label="Note">
                 {% if freelancer_note %}
                   {{ freelancer_note }}
                 {% else %}
@@ -291,7 +291,7 @@
                 {% endif %}
               </td>
 
-              <td>
+              <td data-label="Modetid">
                 <form method="post"
                       action="{{ url_for('admin_set_meet_time', signup_id=s.signup_id) }}"
                       class="inline-form">
@@ -301,7 +301,7 @@
                 <div class="status-text">Bruges kun som admin-note/planlægning.</div>
               </td>
 
-              <td>
+              <td data-label="Status">
                 {% if s.status == "REQUESTED" %}
                   <span class="pill warn">⏳ Afventer</span>
                 {% elif s.status == "APPROVED" %}
@@ -313,7 +313,7 @@
                 {% endif %}
               </td>
 
-              <td>
+              <td class="mob-action">
                 <div class="btn-row">
                   {% if s.status == "REQUESTED" %}
                     <form method="post" action="{{ url_for('admin_approve_signup', signup_id=s.signup_id) }}" style="margin:0;">

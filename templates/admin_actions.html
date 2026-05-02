@@ -76,7 +76,7 @@
   {% endif %}
 </div>
 
-<div class="card">
+<div class="card table-cards">
   <div class="toolbar">
     <div>
       <h2 style="margin:0;">Vagter der kræver action</h2>
@@ -108,13 +108,13 @@
         <tbody>
           {% for s in actionable_shifts %}
             <tr>
-              <td>{{ s.date|dkdate }}</td>
-              <td>{{ s.time }}</td>
-              <td>{{ s.location }}</td>
-              <td>{{ s.customer or "-" }}</td>
-              <td>{{ s.event_type or "-" }}</td>
+              <td class="mob-header">{{ s.date|dkdate }}<span class="mob-only" style="font-weight:400;font-size:13px;color:var(--text-muted);"> &middot; {{ s.time }}</span></td>
+              <td class="mob-hide">{{ s.time }}</td>
+              <td data-label="Sted">{{ s.location }}</td>
+              <td data-label="Hvem">{{ s.customer or "-" }}</td>
+              <td class="mob-hide">{{ s.event_type or "-" }}</td>
 
-              <td class="cell-center">
+              <td class="cell-center" data-label="Nye">
                 {% if s.pending_signups and s.pending_signups > 0 %}
                   <span class="pill warn">{{ s.pending_signups }}</span>
                 {% else %}
@@ -122,7 +122,7 @@
                 {% endif %}
               </td>
 
-              <td class="cell-center">
+              <td class="cell-center" data-label="Fri">
                 {% if s.pending_releases and s.pending_releases > 0 %}
                   <span class="pill warn">{{ s.pending_releases }}</span>
                 {% else %}
@@ -130,11 +130,11 @@
                 {% endif %}
               </td>
 
-              <td class="cell-center">
+              <td class="cell-center mob-hide">
                 <span class="pill warn">{{ s.pending }}</span>
               </td>
 
-              <td>
+              <td class="mob-action">
                 <a class="btn btn-primary btn-small" href="{{ url_for('admin_shift_detail', shift_id=s.id) }}">
                   Gennemgå
                 </a>

@@ -258,7 +258,7 @@
 </div>
 
 <!-- Aktive vagter -->
-<div class="card">
+<div class="card table-cards">
     <div class="card-header">
         <div>
             <h2 style="margin:0;">Aktive vagter</h2>
@@ -293,30 +293,29 @@
                 <tbody>
                     {% for s in active_shifts %}
                         <tr class="{{ s.row_class }}">
-                            <td class="nowrap">{{ s.date|dkdate }}</td>
-                            <td class="nowrap">{{ s.time }}</td>
-                            <td>{{ s.customer or "-" }}</td>
-                            <td>{{ s.event_type or "-" }}</td>
-                            <td>{{ s.location }}</td>
-                            <td class="cell-center nowrap">{{ s.guest_count or "-" }}</td>
-                            <td class="cell-center nowrap">{{ s.needed }}</td>
-                            <td class="cell-center nowrap">{{ s.approved }}</td>
-                            <td class="cell-center nowrap">
+                            <td class="nowrap mob-header">{{ s.date|dkdate }}<span class="mob-only" style="font-weight:400;font-size:13px;color:var(--text-muted);"> &middot; {{ s.time }}</span></td>
+                            <td class="nowrap mob-hide">{{ s.time }}</td>
+                            <td data-label="Hvem">{{ s.customer or "-" }}</td>
+                            <td data-label="Hvad">{{ s.event_type or "-" }}</td>
+                            <td data-label="Sted">{{ s.location }}</td>
+                            <td class="cell-center nowrap mob-hide">{{ s.guest_count or "-" }}</td>
+                            <td class="cell-center nowrap" data-label="Behov">{{ s.needed }}</td>
+                            <td class="cell-center nowrap" data-label="Godkendte">{{ s.approved }}</td>
+                            <td class="cell-center nowrap" data-label="Afventer">
                                 {% if s.pending and s.pending > 0 %}
                                     <span class="pill warn">{{ s.pending }}</span>
                                 {% else %}
                                     <span class="pill ok">0</span>
                                 {% endif %}
                             </td>
-                            <td class="nowrap">
+                            <td class="nowrap mob-action">
                                 <a class="btn btn-primary btn-small" href="{{ url_for('admin_shift_detail', shift_id=s.id) }}">Åbn</a>
-                            </td>
-                            <td class="cell-center nowrap">
                                 <form method="post" action="{{ url_for('admin_set_shift_active', shift_id=s.id) }}" style="margin:0;">
                                     <input type="hidden" name="is_active" value="0">
                                     <button class="btn btn-secondary btn-small" type="submit">Arkivér</button>
                                 </form>
                             </td>
+                            <td class="mob-hide"></td>
                         </tr>
                     {% endfor %}
                 </tbody>
@@ -326,7 +325,7 @@
 </div>
 
 <!-- Arkiverede -->
-<div class="card">
+<div class="card table-cards">
     <div class="card-header">
         <div>
             <h2 style="margin:0;">Arkiverede vagter</h2>
@@ -362,14 +361,14 @@
                 <tbody>
                     {% for s in archived_shifts %}
                         <tr>
-                            <td class="nowrap">{{ s.date|dkdate }}</td>
-                            <td class="nowrap">{{ s.time }}</td>
-                            <td>{{ s.customer or "-" }}</td>
-                            <td>{{ s.event_type or "-" }}</td>
-                            <td>{{ s.location }}</td>
-                            <td class="cell-center nowrap">{{ s.needed }}</td>
-                            <td class="cell-center nowrap">{{ s.approved }}</td>
-                            <td style="display:flex; gap:8px; flex-wrap:wrap;">
+                            <td class="nowrap mob-header">{{ s.date|dkdate }}<span class="mob-only" style="font-weight:400;font-size:13px;color:var(--text-muted);"> &middot; {{ s.time }}</span></td>
+                            <td class="nowrap mob-hide">{{ s.time }}</td>
+                            <td data-label="Hvem">{{ s.customer or "-" }}</td>
+                            <td data-label="Hvad">{{ s.event_type or "-" }}</td>
+                            <td data-label="Sted">{{ s.location }}</td>
+                            <td class="cell-center nowrap" data-label="Behov">{{ s.needed }}</td>
+                            <td class="cell-center nowrap" data-label="Godkendte">{{ s.approved }}</td>
+                            <td class="mob-action" style="display:flex; gap:8px; flex-wrap:wrap;">
                                 <a class="btn btn-secondary btn-small" href="{{ url_for('admin_edit_shift_form', shift_id=s.id) }}">Rediger</a>
 
                                 <form method="post" action="{{ url_for('admin_set_shift_active', shift_id=s.id) }}" style="margin:0;">
